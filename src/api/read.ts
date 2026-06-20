@@ -1,12 +1,21 @@
 // src/api/read.ts
 import { Router } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
+import { z } from 'zod';
 import { isLate } from '../tracking/diversion.js';
 import { createIntent } from '../deliveries/service.js';
+const intentSchema = z.object({
+  direction: z.enum(['SEND','RECEIVE']),
+  otherLocationId: z.number(),
+  payer: z.enum(['ME','RECEIVER']).optional(),
+  vehicle: z.string().optional(),
+});
 export function readRouter(db: DatabaseSync): Router {
   const r = Router();
   r.post('/intent', (req,res) => {
-    const id = createIntent(db, req.body); res.json({ id });
+    const parse = intentSchema.safeParse(req.body);
+    if (!parse.success) { res.status(400).json({ error: parse.error.issues.map((i:any)=>i.message).join('; ') }); return; }
+    const id = createIntent(db, parse.data); res.json({ id });
   });
   r.get('/deliveries', (_req,res) => {
     const rows = db.prepare("select * from deliveries where status!='DELIVERED' order by created_at desc").all();
@@ -19,8 +28,13 @@ export function readRouter(db: DatabaseSync): Router {
   });
   r.get('/ledger', (_req,res) => {
     const today = new Date().toISOString().slice(0,10);
-    const rows = db.prepare("select payer,payment_status,coalesce(amount,0) amount from deliveries where created_at like ?").all(today+'%');
-    res.json(rows);
+    const rows = db.prepare(
+      "select id,payer,payment_method,payment_status,coalesce(amount,0) amount from deliveries " +
+      "where created_at like ? or payment_status='pending'").all(today+'%');
+    const totals = { count: rows.length,
+      pending: rows.filter((x:any)=>x.payment_status==='pending').reduce((s:number,x:any)=>s+x.amount,0),
+      settled: rows.filter((x:any)=>x.payment_status==='settled').reduce((s:number,x:any)=>s+x.amount,0) };
+    res.json({ rows, totals });
   });
   return r;
 }

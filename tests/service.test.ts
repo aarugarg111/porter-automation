@@ -17,7 +17,7 @@ test('SEND intent → assigned messages driver → delivered confirms receiver +
   expect(m.sent.map(s=>s.kind)).toEqual(['directions','confirm','payment']);
 });
 
-test('RECEIPT notification inserts an audit event row with status RECEIPT', async () => {
+test('RECEIPT notification inserts an audit event row with status RECEIPT and event_type=receipt', async () => {
   const db = getDb(':memory:'); seedHome(db);
   const recv = createLocation(db, { nickname:'Bose', relationship:'customer', phone:'777', default_payer:'RECEIVER' }) as number;
   const id = createIntent(db, { direction:'SEND', otherLocationId: recv, payer:'RECEIVER' });
@@ -27,6 +27,7 @@ test('RECEIPT notification inserts an audit event row with status RECEIPT', asyn
   const events:any[] = db.prepare('select * from events where delivery_id=? and status=?').all(id, 'RECEIPT') as any[];
   expect(events.length).toBe(1);
   expect(events[0].source).toBe('notif');
+  expect(events[0].event_type).toBe('receipt');
 });
 
 test('payer=ME: delivered confirms receiver but does NOT notify payment or settle', async () => {
@@ -44,4 +45,20 @@ test('payer=ME: delivered confirms receiver but does NOT notify payment or settl
   expect(kinds).toContain('directions');
   expect(kinds).toContain('confirm');
   expect(kinds).not.toContain('payment');
+});
+
+test('PICKED_UP stamps started_at; REACHED_AREA stamps reached_at', async () => {
+  const db = getDb(':memory:'); seedHome(db);
+  const recv = createLocation(db, { nickname:'Trip', relationship:'customer' }) as number;
+  const id = createIntent(db, { direction:'SEND', otherLocationId: recv });
+  const m = new MockMessenger();
+  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'PRTR4', driverName:'T', driverPhone:'333' });
+  const beforePickup:any = db.prepare('select started_at from deliveries where id=?').get(id);
+  expect(beforePickup.started_at).toBeNull();
+  await applyParsed(db, m, { deliveryId:id, type:'PICKED_UP', orderId:'PRTR4' });
+  const afterPickup:any = db.prepare('select started_at from deliveries where id=?').get(id);
+  expect(afterPickup.started_at).not.toBeNull();
+  await applyParsed(db, m, { deliveryId:id, type:'REACHED_AREA', orderId:'PRTR4' });
+  const afterReached:any = db.prepare('select reached_at from deliveries where id=?').get(id);
+  expect(afterReached.reached_at).not.toBeNull();
 });

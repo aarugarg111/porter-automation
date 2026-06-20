@@ -21,15 +21,17 @@ export async function applyParsed(db: DatabaseSync, msgr: Messenger, p: ParsedNo
   if (!d) return;
   if (p.type==='RECEIPT' && p.amountPaise!=null) {
     db.prepare('update deliveries set amount=? where id=?').run(p.amountPaise, d.id);
-    db.prepare('insert into events (delivery_id,status,source,raw_text,created_at) values (?,?,?,?,?)').run(d.id, 'RECEIPT', 'notif', null, now());
+    db.prepare('insert into events (delivery_id,status,source,raw_text,created_at,event_type) values (?,?,?,?,?,?)').run(d.id, 'RECEIPT', 'notif', null, now(), 'receipt');
     return;
   }
   const to = TYPE_TO_STATUS[p.type]; if (!to) return;
   if (!canTransition(d.status, to)) return;
   db.prepare('update deliveries set status=?, driver_name=coalesce(?,driver_name), driver_phone=coalesce(?,driver_phone), porter_order_id=coalesce(?,porter_order_id) where id=?')
     .run(to, p.driverName??null, p.driverPhone??null, p.orderId??null, d.id);
-  db.prepare('insert into events (delivery_id,status,source,raw_text,created_at) values (?,?,?,?,?)')
-    .run(d.id, to, 'notif', null, now());
+  db.prepare('insert into events (delivery_id,status,source,raw_text,created_at,event_type) values (?,?,?,?,?,?)')
+    .run(d.id, to, 'notif', null, now(), 'status');
+  if (to === 'PICKED_UP') db.prepare("update deliveries set started_at=? where id=? and started_at is null").run(now(), d.id);
+  if (to === 'REACHED_AREA') db.prepare("update deliveries set reached_at=? where id=?").run(now(), d.id);
   if (to==='ASSIGNED' && p.driverPhone) {
     const pickup = getLocation(db, d.pickup_location_id);
     await msgr.sendDriverDirections(p.driverPhone, pickup?.landmark_notes || '');
