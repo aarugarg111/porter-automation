@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Porter Capture</string>
+    <string name="intro">Forwards Porter app notifications to the cockpit backend. Set the backend URL, grant notification access, then leave this app running on the Porter phone.</string>
+    <string name="backend_url_label">Backend base URL</string>
+    <string name="save_url">Save URL</string>
+    <string name="grant_access">Grant notification access</string>
+    <string name="send_test">Send test ping</string>
+    <string name="sending">Sending test…</string>
+</resources>
