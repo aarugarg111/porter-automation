@@ -87,15 +87,19 @@ phone + Bolna account are ready, set `PORTER_LIVE=1` to swap the logging adapter
 Proves the real WhatsApp send against the Porter number (9599157340) without any paid accounts:
 
 ```bash
-npm i whatsapp-web.js qrcode-terminal   # one-time (heavy — pulls Chromium)
+npm i whatsapp-web.js qrcode-terminal   # one-time (heavy — pulls puppeteer)
+# If puppeteer's bundled Chromium fails to download, point at an installed browser:
+export PUPPETEER_EXECUTABLE_PATH="/c/Program Files/Google/Chrome/Application/chrome.exe"
 npm run wa:login                        # prints a QR in the terminal
 #   → on the Porter phone: WhatsApp → Linked Devices → scan it
 npm run wa:login -- 91XXXXXXXXXX        # log in + send a test WhatsApp to that number
 ```
 
 `wa:login` saves the session under `.wwebjs_auth/` (gitignored) using the same id the server uses,
-so afterwards `PORTER_LIVE=1 npx tsx src/index.ts` reuses the login with no re-scan. See `HANDOFF.md`
-§11 for the rest of go-live (Bolna/Exotel AI calls, assets), and the staged test ladder.
+so afterwards `PORTER_LIVE=1 npx tsx src/index.ts` reuses the login with no re-scan.
+`PUPPETEER_EXECUTABLE_PATH` (optional) makes both `wa:login` and the live server use a system
+Chrome/Edge instead of puppeteer's download. See `HANDOFF.md` §11 for the rest of go-live
+(Bolna/Exotel AI calls, assets) and the staged test ladder.
 
 ## Develop
 
