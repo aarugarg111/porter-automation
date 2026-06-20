@@ -21,7 +21,11 @@ export class WhatsAppWebClient implements WhatsAppClient {
     // @ts-ignore optional dependency, installed only on the Porter phone host
     const wweb:any = await import('whatsapp-web.js');
     const { Client, LocalAuth } = wweb.default ?? wweb;
-    this.client = new Client({ authStrategy: new LocalAuth({ clientId: process.env.WHATSAPP_SELF || 'porter' }) });
+    this.client = new Client({
+      authStrategy: new LocalAuth({ clientId: process.env.WHATSAPP_SELF || 'porter' }),
+      // Honor a system Chrome/Edge via PUPPETEER_EXECUTABLE_PATH (avoids puppeteer's Chromium download).
+      puppeteer: { executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || undefined, args: ['--no-sandbox', '--disable-setuid-sandbox'] },
+    });
     this.client.on('qr', (qr:string) => console.log('[whatsapp] scan QR:\n', qr));
     await new Promise<void>((resolve) => { this.client.on('ready', () => resolve()); this.client.initialize(); });
     this.ready = true;

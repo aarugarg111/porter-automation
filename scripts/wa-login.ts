@@ -22,8 +22,13 @@ async function main() {
   }
   const { Client, LocalAuth } = wweb.default ?? wweb;
 
-  console.log(`\n🔌 Connecting WhatsApp session "${clientId}" … (this opens a headless Chromium)`);
-  const client = new Client({ authStrategy: new LocalAuth({ clientId }) });
+  // Use a system Chrome/Edge if provided (PUPPETEER_EXECUTABLE_PATH), else puppeteer's bundled one.
+  const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || undefined;
+  console.log(`\n🔌 Connecting WhatsApp session "${clientId}" …${executablePath ? ` (Chrome: ${executablePath})` : ' (bundled Chromium)'}`);
+  const client = new Client({
+    authStrategy: new LocalAuth({ clientId }),
+    puppeteer: { executablePath, args: ['--no-sandbox', '--disable-setuid-sandbox'] },
+  });
 
   client.on('qr', (qr: string) => {
     console.log('\n📲 Scan this QR from the Porter phone:  WhatsApp → Settings → Linked Devices → Link a device\n');
