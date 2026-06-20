@@ -45,8 +45,8 @@ Backend matches alert → delivery, runs the 5 jobs:
   Seed HOME = Aryan Enterprises (28.5000777/77.3018299) + landmarks.
 - **deliveries**: id, direction(SEND|RECEIVE), pickup_location_id, drop_location_id, status,
   porter_order_id, driver_name, driver_phone, amount, payer(ME|RECEIVER),
-  payment_method(WALLET|MANUAL|null), payment_qr_url, payment_status(pending|settled),
-  expected_minutes, started_at, reached_at, created_at.
+  payment_method(CARD|WALLET|CASH|UPI|null), payment_qr_url, payment_upi_id,
+  payment_status(pending|settled), expected_minutes, started_at, reached_at, created_at.
 - **events**: id, delivery_id, status, source(notif|manual|sim|call), raw_text, created_at.
 - **capture_inbox**: raw Porter app notifications (audit + re-parse).
 
@@ -79,21 +79,26 @@ On DELIVERED: (1) auto-WhatsApp the receiver "Parcel aa gaya? Confirm karein.", 
 WhatsApp is the written record / fallback.
 
 ## Job 5 — Payment coordination
-Each delivery: `payer = ME | RECEIVER`. When `payer = ME`, also `method = WALLET | MANUAL`.
+Each delivery: `payer = ME | RECEIVER`. When `payer = ME`, `method` is the Porter method chosen at
+booking: **CARD / WALLET (automatic)**, **CASH**, or **UPI** (both manual). Method is read from the
+fare notification if it carries it, else set per delivery (default per shop, editable).
 
 - **RECEIVER pays:** receiver pays the Porter driver directly. App pre-notifies the receiver
-  (WhatsApp + the AI confirmation call from Job 4) "Porter charge ~₹{amount} hoga, driver ko de
-  dena"; mark `settled`. Owner out of the loop.
-- **ME + WALLET (fully automatic):** Porter wallet auto-deducts the fare. App just logs `amount`
-  from the notification, tracks running spend, and warns on low balance. Hands-off.
-  - CONSTRAINT: with manual booking + no Porter API, the app cannot set the payment method per
-    booking. Owner enables Porter **wallet as the default payment** once in the Porter app (and
-    keeps it funded); then every booking auto-pays from wallet. (If the API arrives later, the app
-    can auto-select wallet at booking.) The app surfaces a "wallet not set / low balance" warning.
-- **ME + MANUAL (cash / pay-self):** the driver sends a **payment QR code to the Porter phone's
-  WhatsApp (9599157340)**; the app forwards/surfaces that QR to the owner (dashboard + owner's
-  WhatsApp); owner scans & pays; app marks `settled` (auto when the fare notification arrives, or on
-  owner tap).
+  (WhatsApp + the Job-4 AI confirmation call) "Porter charge ~₹{amount} hoga, driver ko de dena";
+  mark `settled`. Owner out of the loop.
+- **ME + CARD/WALLET (automatic):** Porter auto-charges the card/wallet. App logs `amount` from the
+  notification, tracks running spend, warns on low balance. No action needed.
+  - CONSTRAINT: manual booking + no API → the app cannot pick the method per booking; the owner
+    selects CARD/WALLET at booking (or sets it as the Porter default once). The app reflects, it
+    doesn't control.
+- **ME + CASH:** owner pays the agent **cash at pickup** (when the agent leaves the shop). Dashboard
+  shows a "Give ₹{amount} cash to agent" prompt; owner taps paid → `settled`.
+- **ME + UPI:** after the agent reaches the drop, the agent sends a **QR code / UPI number to the
+  Porter WhatsApp (9599157340)** (or says it on the call). The bot captures it → dashboard surfaces
+  the **QR + UPI id + amount** with a "Pay now" prompt → owner pays → taps paid → `settled`.
+- **How this reaches the dashboard (no Porter API):** method/amount/status come from **captured
+  Porter notifications**; the UPI QR/number comes from the **WhatsApp message** to 9599157340. Same
+  end effect as an API feed, via the capture layer.
 - **Ledger**: today's deliveries by payer + method, amount, pending vs settled, totals.
 
 ## Screens

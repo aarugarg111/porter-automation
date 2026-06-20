@@ -14,7 +14,7 @@ whenever it's enabled. **No SMS anywhere** — driver/receiver comms via WhatsAp
 | 2 | Track + catch diversion/delay | Notification milestones + expected-vs-actual time flag; optional WhatsApp live-location |
 | 3 | Confirm reached | Auto-detected from Porter notifications |
 | 4 | Confirm with destination owner | Auto WhatsApp **AND AI phone call** to the receiver |
-| 5 | Payment coordination | RECEIVER→pre-notify; ME+WALLET→auto-deduct (wallet default); ME+MANUAL→driver's QR to your WhatsApp; settlement ledger |
+| 5 | Payment coordination | RECEIVER→pre-notify; ME+CARD/WALLET→auto; ME+CASH→pay agent at pickup; ME+UPI→agent's QR/number to your WhatsApp after drop; settlement ledger |
 
 ## How it works
 ```
