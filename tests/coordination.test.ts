@@ -50,3 +50,24 @@ test('recordCall persists spend and returns paise charged', async () => {
   const paise = svc.recordCall({ deliveryId:1, direction:'IN', seconds:90, escalated:false });
   expect(paise).toBe(900);
 });
+
+test('confirmReceiverByCall places an outbound AI call when budget allows', async () => {
+  const { deps, svc } = build();
+  const r = await svc.confirmReceiverByCall({ deliveryId:1, receiverPhone:'9222', orderId:'ORD-1', estSeconds:60 });
+  expect(r.placed).toBe(true);
+  expect(r.escalated).toBe(false);
+  expect(r.callId).toBeTruthy();
+  const fake = deps.telephony as any;
+  expect(fake.calls).toHaveLength(1);
+  expect(fake.calls[0].toPhone).toBe('9222');
+  expect(fake.calls[0].agentScript).toMatch(/ORD-1/);
+});
+
+test('confirmReceiverByCall does NOT place a paid call when budget says escalate', async () => {
+  const { db, deps, svc } = build();
+  db.prepare("insert into ai_call_spend (delivery_id,direction,seconds,paise,escalated,created_at) values (1,'OUT',1200,180000,0,'2026-06-10T00:00:00Z')").run();
+  const r = await svc.confirmReceiverByCall({ deliveryId:1, receiverPhone:'9222', orderId:'ORD-1', estSeconds:60 });
+  expect(r.placed).toBe(false);
+  expect(r.escalated).toBe(true);
+  expect((deps.telephony as any).calls).toHaveLength(0);
+});

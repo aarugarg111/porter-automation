@@ -46,6 +46,27 @@ test('POST /voice/inbound rejects a missing driverPhone', async () => {
   server.close();
 });
 
+test('POST /voice/confirm-receiver places an outbound call and returns placed', async () => {
+  const { server, port } = appWith();
+  const res = await fetch(`http://localhost:${port}/voice/confirm-receiver`, {
+    method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({ deliveryId:1, receiverPhone:'9222', orderId:'ORD-1' }) });
+  expect(res.status).toBe(200);
+  const body = await res.json();
+  expect(body.placed).toBe(true);
+  expect(body.callId).toBeTruthy();
+  server.close();
+});
+
+test('POST /voice/confirm-receiver rejects a missing orderId', async () => {
+  const { server, port } = appWith();
+  const res = await fetch(`http://localhost:${port}/voice/confirm-receiver`, {
+    method:'POST', headers:{'content-type':'application/json'},
+    body: JSON.stringify({ receiverPhone:'9222' }) });
+  expect(res.status).toBe(400);
+  server.close();
+});
+
 test('POST /voice/status records spend and returns ok', async () => {
   const { db, server, port } = appWith();
   const res = await fetch(`http://localhost:${port}/voice/status`, {

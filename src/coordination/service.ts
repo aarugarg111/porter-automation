@@ -22,6 +22,19 @@ export class CoordinationService {
     return turn;
   }
 
+  // Job 4 voice backup: place an outbound AI call to the receiver to confirm delivery,
+  // but only when the monthly budget allows — otherwise leave it for the owner to call manually.
+  async confirmReceiverByCall(input: { deliveryId:number|null; receiverPhone:string; orderId:string; estSeconds?:number }): Promise<{ placed:boolean; callId?:string; escalated:boolean }> {
+    const est = input.estSeconds ?? 60;
+    if (this.deps.budget.shouldEscalate(est)) return { placed:false, escalated:true };
+    const { callId } = await this.deps.telephony.placeOutboundCall({
+      toPhone: input.receiverPhone,
+      agentScript: `Namaste, Aryan Enterprises se. Order ${input.orderId} aapko mil gaya? Haan ya na bataiye.`,
+      deliveryId: input.deliveryId ?? undefined,
+    });
+    return { placed:true, callId, escalated:false };
+  }
+
   recordCall(input: { deliveryId:number|null; direction:'IN'|'OUT'; seconds:number; escalated:boolean }): number {
     return this.deps.budget.record(input);
   }

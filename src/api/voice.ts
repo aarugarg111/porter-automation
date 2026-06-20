@@ -14,6 +14,12 @@ const statusSchema = z.object({
   seconds: z.number(),
   escalated: z.boolean().optional(),
 });
+const confirmReceiverSchema = z.object({
+  deliveryId: z.number().nullable().optional(),
+  receiverPhone: z.string().min(1),
+  orderId: z.string().min(1),
+  estSeconds: z.number().optional(),
+});
 
 export function voiceRouter(svc: CoordinationService): Router {
   const r = Router();
@@ -24,6 +30,14 @@ export function voiceRouter(svc: CoordinationService): Router {
       deliveryId: parse.data.deliveryId ?? null, driverPhone: parse.data.driverPhone,
       spoken: parse.data.spoken, estSeconds: parse.data.estSeconds });
     res.json(turn);
+  });
+  r.post('/voice/confirm-receiver', async (req, res) => {
+    const parse = confirmReceiverSchema.safeParse(req.body);
+    if (!parse.success) { res.status(400).json({ error: parse.error.issues.map((i:any)=>i.message).join('; ') }); return; }
+    const result = await svc.confirmReceiverByCall({
+      deliveryId: parse.data.deliveryId ?? null, receiverPhone: parse.data.receiverPhone,
+      orderId: parse.data.orderId, estSeconds: parse.data.estSeconds });
+    res.json(result);
   });
   r.post('/voice/status', (req, res) => {
     const parse = statusSchema.safeParse(req.body);
