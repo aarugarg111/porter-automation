@@ -1,4 +1,3 @@
-import React from 'react';
 import type { Delivery } from '../api';
 
 interface Props {

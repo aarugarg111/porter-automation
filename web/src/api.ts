@@ -12,6 +12,8 @@ export interface Delivery {
   payment_status?: string;
   payment_qr_url?: string;
   payment_upi_id?: string;
+  driver_name?: string;
+  driver_phone?: string;
   late: boolean;
   created_at: string;
   started_at?: string;

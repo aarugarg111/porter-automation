@@ -1,5 +1,9 @@
 # Porter Automation — TL;DR
 
+**Build status (2026-06-20):** ✅ Plan 1 backend engine (24 tests) + ✅ Plan 2 dashboard UI
+(15 tests) built, reviewed, on GitHub. ⬜ Left: Plan 3 (WhatsApp bot + AI calls), Plan 4 (Android
+notification-capture app), then deploy.
+
 **Goal:** automate the post-booking coordination for 20–30 Porter deliveries/day. Booking stays
 manual (~30s in the app); the app handles everything painful after it. **Works WITHOUT Porter's
 API** (stalled indefinitely) by reading the **Porter app's notifications**; swaps to the real API

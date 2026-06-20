@@ -28,12 +28,24 @@ Plan 1 (core engine) is implemented and green. See `docs/` for the design spec, 
 plan, and the phase docs.
 
 ## Develop
+
+**Backend (API engine):**
 ```bash
 npm install
-npm test          # vitest — 17 tests
+npm test               # vitest — 24 tests
 npx tsx src/index.ts   # boots the API on :3000
 ```
 Requires Node 24+ (uses the built-in `node:sqlite`).
+
+**Dashboard (web UI) — in `web/`:**
+```bash
+cd web
+npm install
+npm test               # vitest + testing-library — 15 tests
+npm run dev            # Vite dev server (proxies /api → backend :3000)
+npm run build          # production build → web/dist
+```
+Run the backend and `web` dev server together; the dashboard talks to the API via the `/api` proxy.
 
 ## Layout
 - `src/db` schema + seed · `src/deliveries` status machine + service · `src/capture` notification

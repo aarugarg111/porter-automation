@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { listDeliveries, type Delivery } from '../api';
 import DeliveryRow from './DeliveryRow';
 
