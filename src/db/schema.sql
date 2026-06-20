@@ -16,3 +16,10 @@ CREATE TABLE IF NOT EXISTS events (
   event_type TEXT NOT NULL DEFAULT 'status');
 CREATE TABLE IF NOT EXISTS capture_inbox (
   id INTEGER PRIMARY KEY, raw_text TEXT NOT NULL, parsed_json TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS landmarks (
+  id INTEGER PRIMARY KEY, keyword TEXT NOT NULL, aliases TEXT NOT NULL DEFAULT '',
+  directions TEXT NOT NULL, priority INTEGER NOT NULL DEFAULT 0);
+CREATE TABLE IF NOT EXISTS ai_call_spend (
+  id INTEGER PRIMARY KEY, delivery_id INTEGER, direction TEXT NOT NULL,
+  seconds INTEGER NOT NULL, paise INTEGER NOT NULL, escalated INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL);
