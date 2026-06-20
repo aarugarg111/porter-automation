@@ -1,11 +1,10 @@
 # Porter Coordination Cockpit
 
 > **👋 Picking this up? (maintained by [@sarthakgoel31](https://github.com/sarthakgoel31))**
-> Start with **[`HANDOFF.md`](HANDOFF.md)** — it's the single-file resume context (build status,
-> architecture, what's left, and ops checklists). Then run it locally in 2 minutes via
-> [Run the whole thing locally](#run-the-whole-thing-locally-no-phone-no-paid-accounts) below — no
-> phone or paid accounts needed (everything has a fake/dev mode). Plans 1–4 are done/scaffolded;
-> the remaining work is ops (go-live wiring + deploy), all listed in `HANDOFF.md` §10–11.
+> **Open [`START-HERE.md`](START-HERE.md) first** — it's the guided reading order (which files to
+> read and in what order), current state, and what to work on next. Then [`HANDOFF.md`](HANDOFF.md)
+> for the deep context. Everything runs locally in fake mode (no phone/accounts) — see
+> [Run the whole thing locally](#run-the-whole-thing-locally-no-phone-no-paid-accounts) below.
 
 Automates the **post-booking coordination** for a shop running 20–30 [Porter](https://porter.in)
 deliveries/day — both sending to customers and receiving from suppliers. Booking stays manual in the
