@@ -4,3 +4,6 @@ dist/
 .env
 
 .superpowers/
+
+web/node_modules/
+web/dist/
