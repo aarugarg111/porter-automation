@@ -45,17 +45,22 @@ Backend matches alert → delivery, runs the 5 jobs:
   Seed HOME = Aryan Enterprises (28.5000777/77.3018299) + landmarks.
 - **deliveries**: id, direction(SEND|RECEIVE), pickup_location_id, drop_location_id, status,
   porter_order_id, driver_name, driver_phone, amount, payer(ME|RECEIVER),
-  payment_status(pending|settled), expected_minutes, started_at, reached_at, created_at.
+  payment_method(WALLET|MANUAL|null), payment_qr_url, payment_status(pending|settled),
+  expected_minutes, started_at, reached_at, created_at.
 - **events**: id, delivery_id, status, source(notif|manual|sim|call), raw_text, created_at.
 - **capture_inbox**: raw Porter app notifications (audit + re-parse).
 
 Status: `INTENT → ASSIGNED → REACHED_PICKUP → PICKED_UP → REACHED_AREA → DELIVERED` (+CANCELLED).
 
-## Job 1 — Driver coordination (WhatsApp + call, no SMS)
-On ASSIGNED (driver # from notification, or when the driver calls 9599157340), bot WhatsApps the
-driver from 9599157340: location pin + shopfront photo + Hindi voice note (Pillar 25, Canara→
-Faridabad 5 shops, nariyal wale ke saamne, Kishwarna Eye Hospital ke baaju, Bosch+Havells board).
-AI phone call backup for those who don't respond (Phase-2 budget doc). No SMS fallback.
+## Job 1 — Driver coordination (WhatsApp + INBOUND AI call, no SMS)
+Two channels:
+- **Proactive (on ASSIGNED):** bot WhatsApps the driver from 9599157340: location pin + shopfront
+  photo + Hindi voice note (Pillar 25, Canara→Faridabad 5 shops, nariyal wale ke saamne, Kishwarna
+  Eye Hospital ke baaju, Bosch+Havells board).
+- **Reactive (driver CALLS 9599157340):** the system detects an incoming voice call and the **AI
+  answers it**, then guides the driver to the shop in Hindi using the landmark sheet — escalating to
+  the owner only if it can't resolve. This is the key "driver calls me for directions" automation
+  (see phase2-inbound-driver-directions.md + phase2-ai-call-budget.md). No SMS anywhere.
 
 ## Job 2 — Tracking + diversion detection (honest scope)
 No continuous GPS without the API. Approach:
@@ -67,18 +72,29 @@ No continuous GPS without the API. Approach:
 ## Job 3 — Reached confirmation
 REACHED_AREA / DELIVERED parsed from Porter app notifications → status + alert.
 
-## Job 4 — Destination-owner confirmation
-On DELIVERED, auto-WhatsApp the receiver (number from locations): "Parcel aa gaya? Confirm karein."
-AI call fallback. Result logged + pushed to owner.
+## Job 4 — Destination-owner confirmation (WhatsApp AND AI call)
+On DELIVERED: (1) auto-WhatsApp the receiver "Parcel aa gaya? Confirm karein.", AND (2) the AI
+**phones the receiving shop owner** to confirm "parcel aa gaya ki nahi." The call result (confirmed
+/ not yet / no answer) is logged and pushed to the owner. The call is the primary confirmation; the
+WhatsApp is the written record / fallback.
 
-## Job 5 — Payment coordination (no gateway, no collection)
-Receiver pays the Porter driver directly; owner pays Porter via wallet OR cash (mix). So:
-- Each delivery `payer = ME | RECEIVER` (default from shop's `default_payer`, editable).
-- **RECEIVER**: auto-WhatsApp the receiver "Porter charge ~₹{amount} hoga, driver ko de dena"; mark
-  `settled` on delivery. Owner out of the loop.
-- **ME**: capture `amount` from the Porter notification, add to running spend, mark settled (works
-  whether wallet auto-deducts or owner pays cash).
-- **Ledger**: today's deliveries by payer, amount, pending vs settled, totals.
+## Job 5 — Payment coordination
+Each delivery: `payer = ME | RECEIVER`. When `payer = ME`, also `method = WALLET | MANUAL`.
+
+- **RECEIVER pays:** receiver pays the Porter driver directly. App pre-notifies the receiver
+  (WhatsApp + the AI confirmation call from Job 4) "Porter charge ~₹{amount} hoga, driver ko de
+  dena"; mark `settled`. Owner out of the loop.
+- **ME + WALLET (fully automatic):** Porter wallet auto-deducts the fare. App just logs `amount`
+  from the notification, tracks running spend, and warns on low balance. Hands-off.
+  - CONSTRAINT: with manual booking + no Porter API, the app cannot set the payment method per
+    booking. Owner enables Porter **wallet as the default payment** once in the Porter app (and
+    keeps it funded); then every booking auto-pays from wallet. (If the API arrives later, the app
+    can auto-select wallet at booking.) The app surfaces a "wallet not set / low balance" warning.
+- **ME + MANUAL (cash / pay-self):** the driver sends a **payment QR code to the Porter phone's
+  WhatsApp (9599157340)**; the app forwards/surfaces that QR to the owner (dashboard + owner's
+  WhatsApp); owner scans & pays; app marks `settled` (auto when the fare notification arrives, or on
+  owner tap).
+- **Ledger**: today's deliveries by payer + method, amount, pending vs settled, totals.
 
 ## Screens
 1. **Main (split):** quick-book chips (tap = INTENT + open Porter app); below = live active

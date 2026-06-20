@@ -10,11 +10,11 @@ whenever it's enabled. **No SMS anywhere** — driver/receiver comms via WhatsAp
 
 | # | Job | How (no API) |
 |---|---|---|
-| 1 | Get agent to your shop | Auto-WhatsApp pin + shopfront photo + Hindi voice note; AI call backup |
-| 2 | Track + catch diversion/delay | SMS milestones + expected-vs-actual time flag; optional WhatsApp live-location |
-| 3 | Confirm reached | Auto-detected from Porter SMS |
-| 4 | Confirm with destination owner | Auto WhatsApp/AI call to receiver |
-| 5 | Payment coordination | Per-delivery payer tag + auto pre-notify + settlement ledger |
+| 1 | Get agent to your shop | Auto-WhatsApp pin + photo + Hindi voice note, AND the **AI answers the driver's incoming call** to guide him in Hindi |
+| 2 | Track + catch diversion/delay | Notification milestones + expected-vs-actual time flag; optional WhatsApp live-location |
+| 3 | Confirm reached | Auto-detected from Porter notifications |
+| 4 | Confirm with destination owner | Auto WhatsApp **AND AI phone call** to the receiver |
+| 5 | Payment coordination | RECEIVER→pre-notify; ME+WALLET→auto-deduct (wallet default); ME+MANUAL→driver's QR to your WhatsApp; settlement ledger |
 
 ## How it works
 ```
