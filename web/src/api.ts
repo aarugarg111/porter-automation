@@ -1,0 +1,100 @@
+// Typed API client — all calls go through the Vite proxy at /api → backend root
+
+export interface Delivery {
+  id: number;
+  status: string;
+  direction: 'SEND' | 'RECEIVE';
+  other_location_id: number;
+  payer: 'ME' | 'RECEIVER';
+  vehicle?: string;
+  amount?: number;
+  payment_method?: string;
+  payment_status?: string;
+  payment_qr_url?: string;
+  payment_upi_id?: string;
+  late: boolean;
+  created_at: string;
+  started_at?: string;
+  reached_at?: string;
+  delivered_at?: string;
+  events?: DeliveryEvent[];
+}
+
+export interface DeliveryEvent {
+  id: number;
+  delivery_id: number;
+  event_type: string;
+  status?: string;
+  raw?: string;
+  created_at: string;
+}
+
+export interface LocationRow {
+  id: number;
+  nickname: string;
+  relationship: 'customer' | 'supplier' | 'both';
+  contact_person?: string;
+  phone?: string;
+  address?: string;
+  lat?: number;
+  lng?: number;
+  default_direction?: string;
+  default_vehicle?: string;
+  default_payer?: string;
+  landmark_notes?: string;
+}
+
+export interface LedgerRow {
+  id: number;
+  payer: string;
+  payment_method?: string;
+  payment_status?: string;
+  amount: number;
+}
+
+export interface LedgerTotals {
+  count: number;
+  pending: number;
+  settled: number;
+}
+
+export interface LedgerResponse {
+  rows: LedgerRow[];
+  totals: LedgerTotals;
+}
+
+export interface IntentBody {
+  direction: 'SEND' | 'RECEIVE';
+  otherLocationId: number;
+  payer?: 'ME' | 'RECEIVER';
+  vehicle?: string;
+}
+
+export async function listDeliveries(): Promise<Delivery[]> {
+  const res = await fetch('/api/deliveries');
+  return res.json();
+}
+
+export async function getDelivery(id: number): Promise<Delivery> {
+  const res = await fetch(`/api/deliveries/${id}`);
+  return res.json();
+}
+
+export async function listLocations(): Promise<LocationRow[]> {
+  const res = await fetch('/api/locations');
+  return res.json();
+}
+
+export async function createIntent(body: IntentBody): Promise<{ id: number }> {
+  const res = await fetch('/api/intent', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return res.json();
+}
+
+export async function getLedger(): Promise<LedgerResponse> {
+  const res = await fetch('/api/ledger');
+  return res.json();
+}
