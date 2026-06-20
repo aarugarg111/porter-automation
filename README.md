@@ -1,5 +1,12 @@
 # Porter Coordination Cockpit
 
+> **👋 Picking this up? (maintained by [@sarthakgoel31](https://github.com/sarthakgoel31))**
+> Start with **[`HANDOFF.md`](HANDOFF.md)** — it's the single-file resume context (build status,
+> architecture, what's left, and ops checklists). Then run it locally in 2 minutes via
+> [Run the whole thing locally](#run-the-whole-thing-locally-no-phone-no-paid-accounts) below — no
+> phone or paid accounts needed (everything has a fake/dev mode). Plans 1–4 are done/scaffolded;
+> the remaining work is ops (go-live wiring + deploy), all listed in `HANDOFF.md` §10–11.
+
 Automates the **post-booking coordination** for a shop running 20–30 [Porter](https://porter.in)
 deliveries/day — both sending to customers and receiving from suppliers. Booking stays manual in the
 Porter app; this system handles everything painful after it.
@@ -74,6 +81,21 @@ curl -s $B/ledger; echo
 Watch terminal 1: you'll see the WhatsApp pin/photo/voice-note and the AI-call script that *would*
 be sent. The dashboard (terminal 2) shows the live delivery + timeline + ledger. When the Porter
 phone + Bolna account are ready, set `PORTER_LIVE=1` to swap the logging adapters for the real ones.
+
+## Live WhatsApp test (Stage 1 — free, needs the Porter phone)
+
+Proves the real WhatsApp send against the Porter number (9599157340) without any paid accounts:
+
+```bash
+npm i whatsapp-web.js qrcode-terminal   # one-time (heavy — pulls Chromium)
+npm run wa:login                        # prints a QR in the terminal
+#   → on the Porter phone: WhatsApp → Linked Devices → scan it
+npm run wa:login -- 91XXXXXXXXXX        # log in + send a test WhatsApp to that number
+```
+
+`wa:login` saves the session under `.wwebjs_auth/` (gitignored) using the same id the server uses,
+so afterwards `PORTER_LIVE=1 npx tsx src/index.ts` reuses the login with no re-scan. See `HANDOFF.md`
+§11 for the rest of go-live (Bolna/Exotel AI calls, assets), and the staged test ladder.
 
 ## Develop
 

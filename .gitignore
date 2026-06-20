@@ -3,6 +3,10 @@ dist/
 *.sqlite
 .env
 
+# whatsapp-web.js login session + browser cache (created by `npm run wa:login`)
+.wwebjs_auth/
+.wwebjs_cache/
+
 .superpowers/
 
 web/node_modules/

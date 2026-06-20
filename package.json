@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts",
+    "wa:login": "tsx scripts/wa-login.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
