@@ -4,11 +4,24 @@ import type { DatabaseSync } from 'node:sqlite';
 import { z } from 'zod';
 import { isLate } from '../tracking/diversion.js';
 import { createIntent } from '../deliveries/service.js';
+import { createLocation, listLocations } from '../locations/repo.js';
 const intentSchema = z.object({
   direction: z.enum(['SEND','RECEIVE']),
   otherLocationId: z.number(),
   payer: z.enum(['ME','RECEIVER']).optional(),
   vehicle: z.string().optional(),
+});
+const locationSchema = z.object({
+  nickname: z.string().min(1),
+  relationship: z.enum(['customer','supplier','both']),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  lat: z.number().optional(),
+  lng: z.number().optional(),
+  default_direction: z.string().optional(),
+  default_vehicle: z.string().optional(),
+  default_payer: z.string().optional(),
+  landmark_notes: z.string().optional(),
 });
 export function readRouter(db: DatabaseSync): Router {
   const r = Router();
@@ -25,6 +38,15 @@ export function readRouter(db: DatabaseSync): Router {
     const d = db.prepare('select * from deliveries where id=?').get(req.params.id);
     const events = db.prepare('select * from events where delivery_id=? order by created_at').all(req.params.id);
     res.json({ ...(d as any), events });
+  });
+  r.get('/locations', (_req,res) => {
+    res.json(listLocations(db));
+  });
+  r.post('/locations', (req,res) => {
+    const parse = locationSchema.safeParse(req.body);
+    if (!parse.success) { res.status(400).json({ error: parse.error.issues.map((i:any)=>i.message).join('; ') }); return; }
+    const id = createLocation(db, parse.data);
+    res.json({ id });
   });
   r.get('/ledger', (_req,res) => {
     const today = new Date().toISOString().slice(0,10);
