@@ -1,0 +1,9 @@
+node_modules
+web
+android
+.git
+.superpowers
+docs
+*.sqlite
+.env
+tests

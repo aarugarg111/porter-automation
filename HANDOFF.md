@@ -28,9 +28,10 @@ a dedicated phone. A `PorterClient` seam lets the real API drop in later with no
 |------|------|--------|
 | 1 | Backend engine: delivery state machine, notification capture (`POST /capture`), 5-job hooks behind a `Messenger` interface (mock), tracking/diversion, payment ledger, REST API, dev simulator | ✅ Done — 24 tests |
 | 2 | React dashboard (`web/`): split main (quick-book + active list), 1-tap booking, delivery detail timeline, payment ledger | ✅ Done — 15 tests, builds clean |
-| 3 | WhatsApp bot (whatsapp-web.js) + AI calls (answer driver, call receiver) + budget tracker — real adapters behind the seams | ✅ Code-complete — 27 new tests (51 total), tested against fakes. Live wiring (phone QR + Bolna account) pending — see §11 |
-| 4 | Android notification-listener app on the Porter phone → POSTs Porter notifications to `/capture` | ⬜ NOT STARTED (next) |
-| — | Deploy backend + dashboard; wrap dashboard as Android APK (PWA/Capacitor) | ⬜ NOT STARTED |
+| 3 | WhatsApp bot (whatsapp-web.js) + AI calls (answer driver, call receiver, budget tracker) — real adapters behind the seams | ✅ Code-complete — 31 new tests (55 total), tested against fakes. Inbound driver call (`/voice/inbound`) + outbound receiver call (`/voice/confirm-receiver`) both wired. Live wiring (phone QR + Bolna account) pending — see §11 |
+| 4 | Android notification-listener app on the Porter phone → POSTs Porter notifications to `/capture` | ✅ Source scaffolded (`android/`, Kotlin) — posts `{text}` to `/capture`. NOT YET BUILT: needs Android Studio (no SDK on dev box). See `android/README.md` |
+| 5 | Deploy backend (`Dockerfile`) + dashboard static build | 🟡 Scaffolded (`Dockerfile`, `.dockerignore`, `docs/DEPLOY.md`) — not executed; needs host choice + budget. |
+| 6 | Wrap dashboard as Android APK (PWA or Capacitor) | ⬜ NOT STARTED — options written up in `docs/DEPLOY.md` |
 
 ## 5. Architecture / key seams
 - **Stack:** Node 24 + TypeScript + Express + built-in **`node:sqlite`** (NOT better-sqlite3). Web: Vite + React 18 + TS, Vitest + testing-library.
@@ -63,10 +64,13 @@ a dedicated phone. A `PorterClient` seam lets the real API drop in later with no
 `src/capture/parsers.ts` regexes are **PROVISIONAL** (test table in `tests/parsers.test.ts`). Plan: during real/dummy Porter runs, `capture_inbox` stores raw notifications → tune the parsers from actual messages (no need for the user to pre-send samples). The amount regex currently drops paise/comma-grouping — fix when tuning.
 
 ## 10. HOW TO RESUME (next step)
-**Next task = Plan 4 (Android notification-listener app)**, OR live-wiring Plan 3 (§11). Plan 3 code is done + tested against fakes. To resume:
-1. Read this file + `docs/superpowers/specs/2026-06-20-phase3-whatsapp-ai-calling-design.md` (Phase 3 spec) + `docs/superpowers/plans/2026-06-20-phase3-whatsapp-ai-calling.md` (Phase 3 plan).
-2. For Plan 4: Android `NotificationListenerService` on the Porter phone (9599157340) that POSTs Porter app notifications to `POST /capture`. Tune `src/capture/parsers.ts` from real `capture_inbox` rows (see §9).
-3. Other key docs: `docs/PROJECT-TLDR.md` (overview), `docs/superpowers/plans/2026-06-20-cockpit-core.md` (Plan 1), `docs/superpowers/plans/2026-06-20-dashboard.md` (Plan 2). Internal SDD review notes are in `.superpowers/` (git-ignored).
+All code (Plans 1–4) is on `main` + green/scaffolded. The remaining work is **ops/tooling**, not code:
+- **(a) Build + install the Android capture app** — open `android/` in Android Studio, build the APK, install on the Porter phone, set the backend URL, grant notification access, send the test ping. See `android/README.md`.
+- **(b) Live-wire Plan 3** — §11 (WhatsApp QR + Bolna/Exotel account + assets).
+- **(c) Deploy** — `docs/DEPLOY.md` (host the backend via `Dockerfile`, host the dashboard static build, then APK-wrap the dashboard via PWA/Capacitor).
+- **(d) Tune parsers** — once real Porter notifications land in `capture_inbox`, tune `src/capture/parsers.ts` (see §9).
+
+Key docs to read on resume: this file · `docs/superpowers/specs/2026-06-20-phase3-whatsapp-ai-calling-design.md` + its plan `docs/superpowers/plans/2026-06-20-phase3-whatsapp-ai-calling.md` · `docs/DEPLOY.md` · `android/README.md` · `docs/PROJECT-TLDR.md`. Plan 1/2 plans live in `docs/superpowers/plans/2026-06-20-cockpit-core.md` and `…-dashboard.md`. Internal SDD review notes are in `.superpowers/` (git-ignored).
 
 ## 11. Plan 3 live-wiring checklist (code done — these are USER/ops steps)
 All Plan 3 code runs against **fakes** by default. To go live (`PORTER_LIVE=1`):
