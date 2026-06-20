@@ -63,6 +63,8 @@ a dedicated phone. A `PorterClient` seam lets the real API drop in later with no
 ## 9. Notification parser note
 `src/capture/parsers.ts` regexes are **PROVISIONAL** (test table in `tests/parsers.test.ts`). Plan: during real/dummy Porter runs, `capture_inbox` stores raw notifications → tune the parsers from actual messages (no need for the user to pre-send samples). The amount regex currently drops paise/comma-grouping — fix when tuning.
 
+**Ordering note (seen in local smoke test):** the RECEIVER pre-notify fires at `DELIVERED` using `deliveries.amount`. If the fare/receipt notification arrives *after* the delivered one, the WhatsApp says "₹0" (amount not yet known). When tuning, decide the real Porter notification order; if fare lands late, either delay the pre-notify until the receipt event or re-send the amount on RECEIPT.
+
 ## 10. HOW TO RESUME (next step)
 All code (Plans 1–4) is on `main` + green/scaffolded. The remaining work is **ops/tooling**, not code:
 - **(a) Build + install the Android capture app** — open `android/` in Android Studio, build the APK, install on the Porter phone, set the backend URL, grant notification access, send the test ping. See `android/README.md`.

@@ -17,12 +17,10 @@ export default function App() {
   const goMain = () => setView({ name: 'main' });
 
   return (
-    <div style={{ maxWidth: 600, margin: '0 auto', fontFamily: 'system-ui', padding: 12 }}>
-      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 onClick={goMain} style={{ cursor: 'pointer', fontSize: '1.4rem' }}>
-          Porter Cockpit
-        </h1>
-        <nav style={{ display: 'flex', gap: 8 }}>
+    <div className="app">
+      <header className="app-header">
+        <h1 className="brand" onClick={goMain}>Porter Cockpit</h1>
+        <nav className="nav">
           <button onClick={goMain}>Deliveries</button>
           <button onClick={() => setView({ name: 'ledger' })}>Ledger</button>
         </nav>

@@ -39,7 +39,7 @@ export default function DeliveryDetail({ id, onBack }: Props) {
         {d.payment_status ?? 'pending'}
       </p>
       {showUpi && (
-        <div className="upi-pay" style={{ border: '1px solid #88a', padding: 8, borderRadius: 6 }}>
+        <div className="upi-pay">
           <strong>Pay now (UPI)</strong>
           {d.payment_upi_id && <p>UPI: {d.payment_upi_id}</p>}
           {d.payment_qr_url && <img src={d.payment_qr_url} alt="payment QR" width={160} />}

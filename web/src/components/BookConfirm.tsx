@@ -54,7 +54,7 @@ export default function BookConfirm({ location, onBack, onDone }: Props) {
           </select>
         </label>
       </p>
-      <button onClick={confirm} disabled={busy}>
+      <button className="primary" onClick={confirm} disabled={busy}>
         {busy ? 'Booking…' : 'Confirm'}
       </button>
     </div>

@@ -21,7 +21,6 @@ export default function QuickBook({ onSelect }: Props) {
             key={loc.id}
             className="location-chip"
             onClick={() => onSelect(loc)}
-            style={{ padding: '8px 16px', borderRadius: '20px', border: '1px solid #ccc', cursor: 'pointer' }}
           >
             {loc.nickname}
           </button>

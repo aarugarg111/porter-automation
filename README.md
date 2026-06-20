@@ -27,16 +27,60 @@ Porter app; this system handles everything painful after it.
 - **Capture app (Plan 4):** Android notification-listener that forwards Porter notifications.
 
 ## Status
-Plans 1–3 implemented and green (Plan 3 tested against fakes; live wiring needs the Porter phone QR
-scan + a Bolna/Exotel account — see `HANDOFF.md` §11). Set `PORTER_LIVE=1` to use the real adapters.
-See `docs/` for the design specs, implementation plans, and phase docs.
+Plans 1–4 implemented and green. Plan 3 (WhatsApp + AI calls) is tested against fakes; live wiring
+needs the Porter phone QR scan + a Bolna/Exotel account (`HANDOFF.md` §11). Plan 4 (Android capture
+app, `android/`) is scaffolded — build it in Android Studio. See `HANDOFF.md` for the single-file
+resume context and `docs/` for design specs, plans, and `docs/DEPLOY.md` for hosting.
+
+## Run the whole thing locally (no phone, no paid accounts)
+
+Everything runs in **dev/fake mode** (`PORTER_LIVE=0`, the default). The WhatsApp and AI-call
+adapters are replaced by logging adapters that **print exactly what would be sent** to the server
+console — so you can watch the full coordination flow without a phone or a Bolna account.
+
+```bash
+# terminal 1 — backend API on :3000 (dev/fake mode)
+npm install
+npx tsx src/index.ts
+
+# terminal 2 — dashboard on :5173, proxies /api → :3000
+cd web && npm install && npm run dev
+```
+
+Open the dashboard, tap a shop to book, then **simulate Porter notifications** to drive a delivery
+through its lifecycle (the real data source — the Android app — does exactly this POST):
+
+```bash
+B=http://localhost:3000
+# 1. add a customer shop
+LID=$(curl -s -X POST $B/locations -H 'content-type: application/json' \
+  -d '{"nickname":"Sharma Auto Parts","relationship":"customer","phone":"9810012345"}' | sed 's/[^0-9]//g')
+# 2. one-tap booking (SEND, receiver pays)
+curl -s -X POST $B/intent -H 'content-type: application/json' \
+  -d "{\"direction\":\"SEND\",\"otherLocationId\":$LID,\"payer\":\"RECEIVER\"}"
+# 3. simulate the Porter app notifications
+for T in "Partner Ramesh (9876501234) assigned for order PRTR12345" \
+         "Order PRTR12345 picked up" "Driver reached drop location for PRTR12345" \
+         "Order PRTR12345 delivered" "PRTR12345 fare Rs 150"; do
+  curl -s -X POST $B/capture -H 'content-type: application/json' -d "{\"text\":\"$T\"}"; echo
+done
+# 4. driver calls in for directions (Hindi landmark match)
+curl -s -X POST $B/voice/inbound -H 'content-type: application/json' \
+  -d '{"driverPhone":"9876501234","spoken":"canara bank ke paas hoon"}'; echo
+# 5. payment ledger
+curl -s $B/ledger; echo
+```
+
+Watch terminal 1: you'll see the WhatsApp pin/photo/voice-note and the AI-call script that *would*
+be sent. The dashboard (terminal 2) shows the live delivery + timeline + ledger. When the Porter
+phone + Bolna account are ready, set `PORTER_LIVE=1` to swap the logging adapters for the real ones.
 
 ## Develop
 
 **Backend (API engine):**
 ```bash
 npm install
-npm test               # vitest — 51 tests
+npm test               # vitest — 55 tests
 npx tsx src/index.ts   # boots the API on :3000 (PORTER_LIVE=1 for real adapters)
 ```
 Requires Node 24+ (uses the built-in `node:sqlite`).
@@ -55,5 +99,7 @@ Run the backend and `web` dev server together; the dashboard talks to the API vi
 - `src/db` schema + seed · `src/deliveries` status machine + service · `src/capture` notification
   parsers + matcher · `src/tracking` diversion · `src/messenger` WhatsApp adapter · `src/telephony`
   voice/Bolna · `src/landmarks` KB + matcher · `src/budget` spend tracker · `src/coordination`
-  orchestrator · `src/api` REST + voice routes · `src/sim` dev simulator.
+  orchestrator · `src/api` REST + voice routes · `src/dev` logging adapters (fake-mode visibility) ·
+  `src/sim` dev simulator.
+- `web/` React dashboard · `android/` notification-capture app (Plan 4) · `docs/` specs, plans, deploy.
 - `docs/` design spec, plans, and phase docs.
