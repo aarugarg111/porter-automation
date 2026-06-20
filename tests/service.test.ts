@@ -16,3 +16,32 @@ test('SEND intent → assigned messages driver → delivered confirms receiver +
   expect(d.status).toBe('DELIVERED'); expect(d.amount).toBe(14800); expect(d.payment_status).toBe('settled');
   expect(m.sent.map(s=>s.kind)).toEqual(['directions','confirm','payment']);
 });
+
+test('RECEIPT notification inserts an audit event row with status RECEIPT', async () => {
+  const db = getDb(':memory:'); seedHome(db);
+  const recv = createLocation(db, { nickname:'Bose', relationship:'customer', phone:'777', default_payer:'RECEIVER' }) as number;
+  const id = createIntent(db, { direction:'SEND', otherLocationId: recv, payer:'RECEIVER' });
+  const m = new MockMessenger();
+  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'PRTR2', driverName:'D', driverPhone:'666' });
+  await applyParsed(db, m, { deliveryId:id, type:'RECEIPT', orderId:'PRTR2', amountPaise:5000 });
+  const events:any[] = db.prepare('select * from events where delivery_id=? and status=?').all(id, 'RECEIPT') as any[];
+  expect(events.length).toBe(1);
+  expect(events[0].source).toBe('notif');
+});
+
+test('payer=ME: delivered confirms receiver but does NOT notify payment or settle', async () => {
+  const db = getDb(':memory:'); seedHome(db);
+  const recv = createLocation(db, { nickname:'Gupta', relationship:'customer', phone:'555', default_payer:'ME' }) as number;
+  const id = createIntent(db, { direction:'SEND', otherLocationId: recv, payer:'ME' });
+  const m = new MockMessenger();
+  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'PRTR3', driverName:'K', driverPhone:'444' });
+  await applyParsed(db, m, { deliveryId:id, type:'RECEIPT', orderId:'PRTR3', amountPaise:9900 });
+  await applyParsed(db, m, { deliveryId:id, type:'DELIVERED', orderId:'PRTR3' });
+  const d:any = db.prepare('select * from deliveries where id=?').get(id);
+  expect(d.amount).toBe(9900);
+  expect(d.payment_status).toBe('pending');
+  const kinds = m.sent.map((s: {kind:string}) => s.kind);
+  expect(kinds).toContain('directions');
+  expect(kinds).toContain('confirm');
+  expect(kinds).not.toContain('payment');
+});

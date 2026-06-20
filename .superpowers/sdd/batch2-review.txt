@@ -1,0 +1,179 @@
+### commits
+835b5e8 feat: time-based diversion/late flag
+4132867 feat: capture matcher + /capture endpoint
+90437c9 feat: delivery service with 5-job hooks
+
+### diffstat
+ src/api/capture.ts        | 21 +++++++++++++++++++++
+ src/capture/matcher.ts    | 11 +++++++++++
+ src/deliveries/service.ts | 43 +++++++++++++++++++++++++++++++++++++++++++
+ src/tracking/diversion.ts |  7 +++++++
+ tests/capture.test.ts     | 14 ++++++++++++++
+ tests/diversion.test.ts   |  7 +++++++
+ tests/service.test.ts     | 18 ++++++++++++++++++
+ 7 files changed, 121 insertions(+)
+
+### full diff
+diff --git a/src/api/capture.ts b/src/api/capture.ts
+new file mode 100644
+index 0000000..19eeb5c
+--- /dev/null
++++ b/src/api/capture.ts
+@@ -0,0 +1,21 @@
++// src/api/capture.ts
++import { Router } from 'express';
++import type { DatabaseSync } from 'node:sqlite';
++import type { Messenger } from '../messenger/types.js';
++import { parseNotification } from '../capture/parsers.js';
++import { matchDelivery } from '../capture/matcher.js';
++import { applyParsed } from '../deliveries/service.js';
++export function captureRouter(db: DatabaseSync, msgr: Messenger): Router {
++  const r = Router();
++  r.post('/capture', async (req, res) => {
++    const text = String(req.body?.text ?? '');
++    db.prepare('insert into capture_inbox (raw_text,created_at) values (?,?)').run(text, new Date().toISOString());
++    const p = parseNotification(text);
++    if (!p) return res.json({ ok:true, matched:false, reason:'unparsed' });
++    const deliveryId = matchDelivery(db, p);
++    if (!deliveryId) return res.json({ ok:true, matched:false, reason:'no-open-delivery' });
++    await applyParsed(db, msgr, { ...p, deliveryId });
++    res.json({ ok:true, matched:true, deliveryId });
++  });
++  return r;
++}
+diff --git a/src/capture/matcher.ts b/src/capture/matcher.ts
+new file mode 100644
+index 0000000..93978be
+--- /dev/null
++++ b/src/capture/matcher.ts
+@@ -0,0 +1,11 @@
++// src/capture/matcher.ts
++import type { DatabaseSync } from 'node:sqlite';
++import type { ParsedNotif } from './parsers.js';
++export function matchDelivery(db: DatabaseSync, p: ParsedNotif): number | null {
++  if (p.orderId) {
++    const byOrder:any = db.prepare('select id from deliveries where porter_order_id=?').get(p.orderId);
++    if (byOrder) return byOrder.id;
++  }
++  const open:any = db.prepare("select id from deliveries where porter_order_id is null and status in ('INTENT','ASSIGNED') order by created_at desc limit 1").get();
++  return open?.id ?? null;
++}
+diff --git a/src/deliveries/service.ts b/src/deliveries/service.ts
+new file mode 100644
+index 0000000..4c61a10
+--- /dev/null
++++ b/src/deliveries/service.ts
+@@ -0,0 +1,43 @@
++// src/deliveries/service.ts
++import type { DatabaseSync } from 'node:sqlite';
++import { canTransition, type Status } from './status.js';
++import { getLocation } from '../locations/repo.js';
++import type { Messenger } from '../messenger/types.js';
++import type { ParsedNotif } from '../capture/parsers.js';
++const now = () => new Date().toISOString();
++export function createIntent(db: DatabaseSync,
++  i: { direction:'SEND'|'RECEIVE'; otherLocationId:number; vehicle?:string; payer?:'ME'|'RECEIVER' }): number {
++  const home:any = db.prepare('select id from locations where is_home=1').get();
++  const pickup = i.direction==='SEND' ? home.id : i.otherLocationId;
++  const drop   = i.direction==='SEND' ? i.otherLocationId : home.id;
++  return Number(db.prepare(`insert into deliveries (direction,pickup_location_id,drop_location_id,status,payer,created_at)
++    values (?,?,?,?,?,?)`).run(i.direction,pickup,drop,'INTENT', i.payer||'ME', now()).lastInsertRowid);
++}
++const TYPE_TO_STATUS: Record<string, Status|undefined> = {
++  ASSIGNED:'ASSIGNED', REACHED_PICKUP:'REACHED_PICKUP', PICKED_UP:'PICKED_UP',
++  REACHED_AREA:'REACHED_AREA', DELIVERED:'DELIVERED' };
++export async function applyParsed(db: DatabaseSync, msgr: Messenger, p: ParsedNotif & { deliveryId:number }) {
++  const d:any = db.prepare('select * from deliveries where id=?').get(p.deliveryId);
++  if (!d) return;
++  if (p.type==='RECEIPT' && p.amountPaise!=null) {
++    db.prepare('update deliveries set amount=? where id=?').run(p.amountPaise, d.id); return;
++  }
++  const to = TYPE_TO_STATUS[p.type]; if (!to) return;
++  if (!canTransition(d.status, to)) return;
++  db.prepare('update deliveries set status=?, driver_name=coalesce(?,driver_name), driver_phone=coalesce(?,driver_phone), porter_order_id=coalesce(?,porter_order_id) where id=?')
++    .run(to, p.driverName??null, p.driverPhone??null, p.orderId??null, d.id);
++  db.prepare('insert into events (delivery_id,status,source,raw_text,created_at) values (?,?,?,?,?)')
++    .run(d.id, to, 'notif', null, now());
++  if (to==='ASSIGNED' && p.driverPhone) {
++    const pickup = getLocation(db, d.pickup_location_id);
++    await msgr.sendDriverDirections(p.driverPhone, pickup?.landmark_notes || '');
++  }
++  if (to==='DELIVERED') {
++    const drop = getLocation(db, d.drop_location_id);
++    if (drop?.phone) await msgr.confirmReceiver(drop.phone, d.porter_order_id || '');
++    if (d.payer==='RECEIVER' && drop?.phone) {
++      await msgr.notifyReceiverPayment(drop.phone, d.amount || 0);
++      db.prepare("update deliveries set payment_status='settled' where id=?").run(d.id);
++    }
++  }
++}
+diff --git a/src/tracking/diversion.ts b/src/tracking/diversion.ts
+new file mode 100644
+index 0000000..b5dbd21
+--- /dev/null
++++ b/src/tracking/diversion.ts
+@@ -0,0 +1,7 @@
++// src/tracking/diversion.ts
++export function isLate(d: { status:string; started_at?:string; expected_minutes?:number }, nowMs:number, threshold=1.5): boolean {
++  if (['DELIVERED','REACHED_AREA','CANCELLED'].includes(d.status)) return false;
++  if (!d.started_at || !d.expected_minutes) return false;
++  const elapsedMin = (nowMs - Date.parse(d.started_at)) / 60000;
++  return elapsedMin > d.expected_minutes * threshold;
++}
+diff --git a/tests/capture.test.ts b/tests/capture.test.ts
+new file mode 100644
+index 0000000..e264526
+--- /dev/null
++++ b/tests/capture.test.ts
+@@ -0,0 +1,14 @@
++import { test, expect } from 'vitest';
++import { getDb } from '../src/db/index.js';
++import { seedHome } from '../src/db/seed.js';
++import { createLocation } from '../src/locations/repo.js';
++import { createIntent } from '../src/deliveries/service.js';
++import { matchDelivery } from '../src/capture/matcher.js';
++test('matches order to newest open intent then by orderId', () => {
++  const db = getDb(':memory:'); seedHome(db);
++  const r = createLocation(db,{nickname:'S',relationship:'customer'}) as number;
++  const id = createIntent(db,{direction:'SEND',otherLocationId:r});
++  expect(matchDelivery(db,{type:'ASSIGNED',orderId:'PRTR9'})).toBe(id);
++  db.prepare("update deliveries set porter_order_id='PRTR9' where id=?").run(id);
++  expect(matchDelivery(db,{type:'DELIVERED',orderId:'PRTR9'})).toBe(id);
++});
+diff --git a/tests/diversion.test.ts b/tests/diversion.test.ts
+new file mode 100644
+index 0000000..ee1a445
+--- /dev/null
++++ b/tests/diversion.test.ts
+@@ -0,0 +1,7 @@
++import { test, expect } from 'vitest';
++import { isLate } from '../src/tracking/diversion.js';
++test('flags when elapsed exceeds expected*threshold pre-arrival', () => {
++  const started = new Date(Date.now()-60*60000).toISOString(); // 60 min ago
++  expect(isLate({status:'PICKED_UP', started_at:started, expected_minutes:20}, Date.now())).toBe(true);
++  expect(isLate({status:'DELIVERED', started_at:started, expected_minutes:20}, Date.now())).toBe(false);
++});
+diff --git a/tests/service.test.ts b/tests/service.test.ts
+new file mode 100644
+index 0000000..c193d15
+--- /dev/null
++++ b/tests/service.test.ts
+@@ -0,0 +1,18 @@
++import { test, expect } from 'vitest';
++import { getDb } from '../src/db/index.js';
++import { seedHome } from '../src/db/seed.js';
++import { createLocation } from '../src/locations/repo.js';
++import { MockMessenger } from '../src/messenger/mock.js';
++import { createIntent, applyParsed } from '../src/deliveries/service.js';
++test('SEND intent → assigned messages driver → delivered confirms receiver + payment', async () => {
++  const db = getDb(':memory:'); seedHome(db);
++  const recv = createLocation(db, { nickname:'Sharma', relationship:'customer', phone:'999', default_payer:'RECEIVER' }) as number;
++  const id = createIntent(db, { direction:'SEND', otherLocationId: recv, payer:'RECEIVER' });
++  const m = new MockMessenger();
++  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'PRTR1', driverName:'R', driverPhone:'888' });
++  await applyParsed(db, m, { deliveryId:id, type:'RECEIPT', orderId:'PRTR1', amountPaise:14800 });
++  await applyParsed(db, m, { deliveryId:id, type:'DELIVERED', orderId:'PRTR1' });
++  const d:any = db.prepare('select * from deliveries where id=?').get(id);
++  expect(d.status).toBe('DELIVERED'); expect(d.amount).toBe(14800); expect(d.payment_status).toBe('settled');
++  expect(m.sent.map(s=>s.kind)).toEqual(['directions','confirm','payment']);
++});

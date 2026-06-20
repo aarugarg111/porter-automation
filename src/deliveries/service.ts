@@ -20,7 +20,9 @@ export async function applyParsed(db: DatabaseSync, msgr: Messenger, p: ParsedNo
   const d:any = db.prepare('select * from deliveries where id=?').get(p.deliveryId);
   if (!d) return;
   if (p.type==='RECEIPT' && p.amountPaise!=null) {
-    db.prepare('update deliveries set amount=? where id=?').run(p.amountPaise, d.id); return;
+    db.prepare('update deliveries set amount=? where id=?').run(p.amountPaise, d.id);
+    db.prepare('insert into events (delivery_id,status,source,raw_text,created_at) values (?,?,?,?,?)').run(d.id, 'RECEIPT', 'notif', null, now());
+    return;
   }
   const to = TYPE_TO_STATUS[p.type]; if (!to) return;
   if (!canTransition(d.status, to)) return;
