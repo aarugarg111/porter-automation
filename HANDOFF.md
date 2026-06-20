@@ -20,7 +20,7 @@ a dedicated phone. A `PorterClient` seam lets the real API drop in later with no
 ## 3. Repo / how to run
 - **GitHub (public):** https://github.com/aarugarg111/porter-automation — owner `aarugarg111`, collaborator `sarthakgoel31` (admin; invite pending acceptance). Branch: `main`.
 - **Local:** `C:\Users\Aryan Garg\porter-automation`
-- **Backend (API engine):** `npm install` · `npm test` (24 tests) · `npx tsx src/index.ts` (API on :3000).
+- **Backend (API engine):** `npm install` · `npm test` (51 tests) · `npx tsx src/index.ts` (API on :3000). Set `PORTER_LIVE=1` to use the real WhatsApp/Bolna adapters instead of fakes (needs creds — see `.env.example`).
 - **Dashboard (web):** `cd web` · `npm install` · `npm test` (15 tests) · `npm run dev` (Vite, proxies `/api`→:3000) · `npm run build`.
 
 ## 4. Build status
@@ -28,15 +28,17 @@ a dedicated phone. A `PorterClient` seam lets the real API drop in later with no
 |------|------|--------|
 | 1 | Backend engine: delivery state machine, notification capture (`POST /capture`), 5-job hooks behind a `Messenger` interface (mock), tracking/diversion, payment ledger, REST API, dev simulator | ✅ Done — 24 tests |
 | 2 | React dashboard (`web/`): split main (quick-book + active list), 1-tap booking, delivery detail timeline, payment ledger | ✅ Done — 15 tests, builds clean |
-| 3 | WhatsApp bot (whatsapp-web.js) + AI calls (answer driver, call receiver) + UPI-QR forwarding — wire the real `Messenger` impl | ⬜ NOT STARTED (next) |
-| 4 | Android notification-listener app on the Porter phone → POSTs Porter notifications to `/capture` | ⬜ NOT STARTED |
+| 3 | WhatsApp bot (whatsapp-web.js) + AI calls (answer driver, call receiver) + budget tracker — real adapters behind the seams | ✅ Code-complete — 27 new tests (51 total), tested against fakes. Live wiring (phone QR + Bolna account) pending — see §11 |
+| 4 | Android notification-listener app on the Porter phone → POSTs Porter notifications to `/capture` | ⬜ NOT STARTED (next) |
 | — | Deploy backend + dashboard; wrap dashboard as Android APK (PWA/Capacitor) | ⬜ NOT STARTED |
 
 ## 5. Architecture / key seams
 - **Stack:** Node 24 + TypeScript + Express + built-in **`node:sqlite`** (NOT better-sqlite3). Web: Vite + React 18 + TS, Vitest + testing-library.
 - **`PorterClient` seam:** `mock`(dev) · **`notifBridge`(now — the `/capture` ingest path → `applyParsed`)** · `real`(when API lands). Swapping later = no rewrite.
-- **`Messenger` interface** (`src/messenger/`): `sendDriverDirections`, `confirmReceiver`, `notifyReceiverPayment`. Mock now; Plan 3 implements the real whatsapp-web.js + AI-call version behind the same interface — `src/deliveries/service.ts` does not change.
-- **Code layout:** `src/db` (schema+seed) · `src/deliveries` (status machine + service) · `src/capture` (parsers + matcher) · `src/tracking` (diversion) · `src/messenger` · `src/api` (read + capture routers) · `src/sim`. Web: `web/src/components/*`, `web/src/api.ts`.
+- **`Messenger` interface** (`src/messenger/`): `sendDriverDirections`, `confirmReceiver`, `notifyReceiverPayment`. Implemented for real by **`WhatsAppMessenger`** (Plan 3) over a `WhatsAppClient` port (`WhatsAppWebClient` real / `FakeWhatsAppClient` test) — interface shape unchanged, so `src/deliveries/service.ts` does not change.
+- **Telephony seam (Plan 3):** `TelephonyProvider` interface (`src/telephony/`) with `BolnaAdapter` (real, Exotel +91 number, global `fetch`) / `FakeTelephonyProvider` (test). `VoiceAgent` decides each inbound call turn from `LandmarkKB`. Provider-agnostic — swap Plivo/Twilio later.
+- **`CoordinationService`** (`src/coordination/`): budget-aware orchestrator wiring WhatsApp + voice + `BudgetTracker`; warm-transfers to the spare phone when the landmark is unknown, confidence is low, or the ₹2k/mo budget nears its cap. Voice webhooks: `POST /voice/inbound`, `POST /voice/status` (`src/api/voice.ts`).
+- **Code layout:** `src/db` (schema+seed) · `src/deliveries` (status machine + service) · `src/capture` (parsers + matcher) · `src/tracking` (diversion) · `src/messenger` (WhatsApp) · `src/telephony` (voice/Bolna) · `src/landmarks` (KB + matcher) · `src/budget` (spend tracker) · `src/coordination` (orchestrator) · `src/api` (read + capture + voice routers) · `src/sim`. Web: `web/src/components/*`, `web/src/api.ts`.
 - **Data model highlights:** `deliveries(direction, status, payer, payment_method, payment_qr_url, payment_upi_id, payment_status, started_at, reached_at, amount[paise], …)`, `events(event_type 'status'|'receipt', status, …)`, `locations(is_home, default_payer, default_direction, relationship, landmark_notes, …)`, `capture_inbox(raw_text)`.
 - Status flow: `INTENT → ASSIGNED → REACHED_PICKUP → PICKED_UP → REACHED_AREA → DELIVERED` (+CANCELLED). Money in **integer paise**. Times UTC ISO-8601.
 
@@ -61,8 +63,15 @@ a dedicated phone. A `PorterClient` seam lets the real API drop in later with no
 `src/capture/parsers.ts` regexes are **PROVISIONAL** (test table in `tests/parsers.test.ts`). Plan: during real/dummy Porter runs, `capture_inbox` stores raw notifications → tune the parsers from actual messages (no need for the user to pre-send samples). The amount regex currently drops paise/comma-grouping — fix when tuning.
 
 ## 10. HOW TO RESUME (next step)
-**Next task = Plan 3 (WhatsApp bot + AI calls).** To resume:
-1. Read this file + `docs/superpowers/specs/2026-06-19-porter-phase1-dashboard-design.md` (jobs/payment detail) + `docs/phase2-inbound-driver-directions.md` + `docs/phase2-ai-call-budget.md`.
-2. Use Superpowers `writing-plans` → write `docs/superpowers/plans/2026-06-2x-whatsapp-ai.md`, then `subagent-driven-development` to build it.
-3. Implement the real `Messenger` (whatsapp-web.js on 9599157340: send pin+photo+voice-note, send receiver confirm, forward UPI QR), the **inbound AI call** answerer (driver directions via landmark sheet), the **outbound AI call** to the receiver, and the call→`events(event_type='call')` + payment hooks. Keep within the ₹2k budget design.
-4. Other key docs: `docs/PROJECT-TLDR.md` (overview), `docs/superpowers/plans/2026-06-20-cockpit-core.md` (Plan 1), `docs/superpowers/plans/2026-06-20-dashboard.md` (Plan 2). Internal SDD review notes are in `.superpowers/` (git-ignored).
+**Next task = Plan 4 (Android notification-listener app)**, OR live-wiring Plan 3 (§11). Plan 3 code is done + tested against fakes. To resume:
+1. Read this file + `docs/superpowers/specs/2026-06-20-phase3-whatsapp-ai-calling-design.md` (Phase 3 spec) + `docs/superpowers/plans/2026-06-20-phase3-whatsapp-ai-calling.md` (Phase 3 plan).
+2. For Plan 4: Android `NotificationListenerService` on the Porter phone (9599157340) that POSTs Porter app notifications to `POST /capture`. Tune `src/capture/parsers.ts` from real `capture_inbox` rows (see §9).
+3. Other key docs: `docs/PROJECT-TLDR.md` (overview), `docs/superpowers/plans/2026-06-20-cockpit-core.md` (Plan 1), `docs/superpowers/plans/2026-06-20-dashboard.md` (Plan 2). Internal SDD review notes are in `.superpowers/` (git-ignored).
+
+## 11. Plan 3 live-wiring checklist (code done — these are USER/ops steps)
+All Plan 3 code runs against **fakes** by default. To go live (`PORTER_LIVE=1`):
+1. **WhatsApp:** install `whatsapp-web.js` (`npm i whatsapp-web.js` — pulls puppeteer/Chromium) on the host with the Porter phone reachable; first run prints a QR → scan it from WhatsApp on **9599157340** (`LocalAuth` persists the session). `WhatsAppWebClient` uses a lazy `import('whatsapp-web.js')`, so the package is only needed when live.
+2. **Telephony (Bolna on Exotel +91 number):** create the account, build the Hindi voice agent, set `BOLNA_API_KEY`, `BOLNA_AGENT_ID`, `EXOTEL_FROM`. Point the Exotel number's inbound webhook at `POST /voice/inbound` and call-status at `POST /voice/status`. Verify `BolnaAdapter`'s request/response field names against Bolna's current API (the adapter is a best-effort scaffold).
+3. **Assets:** drop `assets/shopfront.jpg` (shopfront photo) and `assets/directions-hi.ogg` (Hindi voice note) so the driver WhatsApp includes them (absent → text-only, no error).
+4. **Budget:** tune `AI_CALL_PAISE_PER_MIN` to the real Bolna+Exotel rate; cap stays `AI_BUDGET_PAISE_PER_MONTH=200000` (₹2,000).
+5. **Landmarks:** `src/landmarks/seed.ts` seeds 5 curated landmarks; add more as drivers name new ones (edit seed or insert into the `landmarks` table).

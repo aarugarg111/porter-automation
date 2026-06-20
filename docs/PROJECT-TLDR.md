@@ -1,7 +1,8 @@
 # Porter Automation — TL;DR
 
-**Build status (2026-06-20):** ✅ Plan 1 backend engine (24 tests) + ✅ Plan 2 dashboard UI
-(15 tests) built, reviewed, on GitHub. ⬜ Left: Plan 3 (WhatsApp bot + AI calls), Plan 4 (Android
+**Build status (2026-06-20):** ✅ Plan 1 backend engine (now 51 tests) + ✅ Plan 2 dashboard UI
+(15 tests) + ✅ Plan 3 (WhatsApp bot + AI calls + budget, code-complete, tested against fakes;
+live wiring pending phone QR + Bolna account) built, on GitHub. ⬜ Left: Plan 4 (Android
 notification-capture app), then deploy.
 
 **Goal:** automate the post-booking coordination for 20–30 Porter deliveries/day. Booking stays

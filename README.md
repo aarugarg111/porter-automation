@@ -17,23 +17,27 @@ Porter app; this system handles everything painful after it.
 ## Architecture
 - **Backend (this repo, Plan 1 — done):** Node + TypeScript + Express + Node's built-in `node:sqlite`.
   A delivery state machine driven by captured notifications, the 5-job engine behind a `Messenger`
-  interface, a dev simulator, and a REST API. Fully unit + e2e tested (17 tests).
-- **Messaging (Plan 3):** `whatsapp-web.js` bot on a dedicated phone (driver/receiver comms; no SMS).
-- **AI call backup (Plan 3):** Hindi landmark-based directions, budget-capped.
+  interface, a dev simulator, and a REST API. Fully unit + e2e tested.
+- **Messaging (Plan 3 — done):** `WhatsAppMessenger` over a `whatsapp-web.js` bot on a dedicated phone
+  (driver/receiver comms; no SMS), behind a `WhatsAppClient` port (real/fake).
+- **AI calls (Plan 3 — done):** provider-agnostic `TelephonyProvider` (`BolnaAdapter`) + `VoiceAgent`
+  giving Hindi landmark-based directions, a `BudgetTracker` capping spend at ₹2,000/month, and a
+  `CoordinationService` that warm-transfers hard/over-budget calls to the spare phone.
 - **Dashboard (Plan 2):** React web app, installable as an Android APK.
 - **Capture app (Plan 4):** Android notification-listener that forwards Porter notifications.
 
 ## Status
-Plan 1 (core engine) is implemented and green. See `docs/` for the design spec, the implementation
-plan, and the phase docs.
+Plans 1–3 implemented and green (Plan 3 tested against fakes; live wiring needs the Porter phone QR
+scan + a Bolna/Exotel account — see `HANDOFF.md` §11). Set `PORTER_LIVE=1` to use the real adapters.
+See `docs/` for the design specs, implementation plans, and phase docs.
 
 ## Develop
 
 **Backend (API engine):**
 ```bash
 npm install
-npm test               # vitest — 24 tests
-npx tsx src/index.ts   # boots the API on :3000
+npm test               # vitest — 51 tests
+npx tsx src/index.ts   # boots the API on :3000 (PORTER_LIVE=1 for real adapters)
 ```
 Requires Node 24+ (uses the built-in `node:sqlite`).
 
@@ -49,6 +53,7 @@ Run the backend and `web` dev server together; the dashboard talks to the API vi
 
 ## Layout
 - `src/db` schema + seed · `src/deliveries` status machine + service · `src/capture` notification
-  parsers + matcher · `src/tracking` diversion · `src/messenger` interface + mock · `src/api`
-  REST routes · `src/sim` dev simulator.
+  parsers + matcher · `src/tracking` diversion · `src/messenger` WhatsApp adapter · `src/telephony`
+  voice/Bolna · `src/landmarks` KB + matcher · `src/budget` spend tracker · `src/coordination`
+  orchestrator · `src/api` REST + voice routes · `src/sim` dev simulator.
 - `docs/` design spec, plans, and phase docs.
