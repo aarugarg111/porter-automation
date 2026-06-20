@@ -1,0 +1,7 @@
+nickname,relationship,contact_person,phone,full_address,google_maps_link,area_landmark,default_vehicle,notes
+Sharma Electronics,customer,Raju Sharma,9876543210,"Shop 12, MG Road, near SBI ATM",https://maps.app.goo.gl/EXAMPLE1,MG Road,2-wheeler,You SEND to them (outbound). Call before 6pm.
+Bosch Distributor Okhla,supplier,Mr Verma,9876511111,"Plot 5, Okhla Phase 2",https://maps.app.goo.gl/EXAMPLE2,Okhla,2-wheeler,You GET material FROM them (inbound).
+Gupta Traders,both,Anil Gupta,9876500000,"45 Sadar Bazaar, opposite bus stand",https://maps.app.goo.gl/EXAMPLE3,Sadar Bazaar,2-wheeler,Both send & receive. Shutter closes 8pm.
+,,,,,,,,
+,,,,,,,,
+,,,,,,,,
