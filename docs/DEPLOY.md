@@ -5,12 +5,33 @@ Status: **scaffolded, not yet executed.** These steps need a hosting account + a
 The `Dockerfile` and configs here were written without Docker/Android tooling on the authoring
 machine, so **build them once on a tooling-equipped box before relying on them.**
 
+## Single-box deploy (recommended — implemented)
+The backend now **serves the built dashboard itself**, so one container/process is the whole thing:
+- `GET /` → the dashboard (from `web/dist`, if present).
+- `GET /api/*` → the API (also mounted at root for the Android app's `POST /capture`).
+- `GET /health` → `{ ok: true }` for platform health checks.
+- `CAPTURE_TOKEN` (env) → if set, `/capture` and `/whatsapp/inbound` require the `x-capture-token`
+  header (the Android app sends it). Leave blank on a trusted LAN; **set it on any public host.**
+
+Build + run locally (proves the single-box path):
+```bash
+npm run build:web          # → web/dist
+npm install
+npx tsx src/index.ts        # serves API + dashboard on :3000
+# open http://localhost:3000  (dashboard) · curl http://localhost:3000/health
+```
+Docker (same thing, the image builds `web/dist` for you):
+```bash
+docker build -t porter-cockpit .
+docker run -p 3000:3000 -e CAPTURE_TOKEN=some-long-secret -v porter_data:/app porter-cockpit
+```
+The dashboard calls same-origin `/api/*`, so nothing else needs configuring. (In dev, `npm run dev`
+in `web/` still proxies `/api` → the backend via `VITE_API_TARGET`.)
+
 ## Architecture for deploy
-Three deployables:
-1. **Backend API** (`src/`, Express + `node:sqlite`) — the always-on server. The Android capture app
-   and the dashboard both talk to it.
-2. **Dashboard** (`web/`, Vite static build) — static files; can be served by any static host or by
-   the backend.
+Three deployables (or one box, as above):
+1. **Backend API** (`src/`, Express + `node:sqlite`) — the always-on server; also serves the dashboard.
+2. **Dashboard** (`web/`, Vite static build) — served by the backend, or any static host.
 3. **Android capture app** (`android/`) + the dashboard-as-APK (Plan 6).
 
 ## Plan 5a — Backend hosting

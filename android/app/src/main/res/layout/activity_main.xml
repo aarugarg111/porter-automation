@@ -32,6 +32,20 @@
         android:inputType="textUri"
         android:autofillHints="" />
 
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingTop="12dp"
+        android:text="@string/token_label" />
+
+    <EditText
+        android:id="@+id/tokenField"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/token_hint"
+        android:inputType="text"
+        android:autofillHints="" />
+
     <Button
         android:id="@+id/saveBtn"
         android:layout_width="match_parent"

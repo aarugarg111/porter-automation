@@ -21,11 +21,14 @@ class MainActivity : AppCompatActivity() {
         setContentView(R.layout.activity_main)
 
         val urlField = findViewById<EditText>(R.id.urlField)
+        val tokenField = findViewById<EditText>(R.id.tokenField)
         val status = findViewById<TextView>(R.id.status)
         urlField.setText(Prefs.baseUrl(this))
+        tokenField.setText(Prefs.token(this))
 
         findViewById<Button>(R.id.saveBtn).setOnClickListener {
             Prefs.setBaseUrl(this, urlField.text.toString())
+            Prefs.setToken(this, tokenField.text.toString())
             Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
         }
 
@@ -35,10 +38,12 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.testBtn).setOnClickListener {
             val base = urlField.text.toString()
+            val token = tokenField.text.toString()
             Prefs.setBaseUrl(this, base)
+            Prefs.setToken(this, token)
             status.text = getString(R.string.sending)
             thread {
-                val code = Poster.postCapture(base, "TEST — Porter capture wired up")
+                val code = Poster.postCapture(base, "TEST — Porter capture wired up", token)
                 runOnUiThread {
                     status.text = if (code in 200..299) "Test OK ($code)" else "Test failed ($code)"
                 }
