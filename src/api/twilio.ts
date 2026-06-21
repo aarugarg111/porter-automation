@@ -1,13 +1,15 @@
 // src/api/twilio.ts
-// Inbound driver call via Twilio. Twilio POSTs form-encoded params (From, Digits, …) to this
-// webhook and plays back whatever TwiML we return. We answer and speak the fixed Hindi directions.
+// Conversational inbound driver call via Twilio. Twilio POSTs form-encoded params (SpeechResult,
+// Digits, From, …) each turn; we reply with TwiML and keep the conversation going until the driver
+// arrives or we connect him to the owner. Decision logic = ../telephony/guide.ts.
 import { Router, urlencoded } from 'express';
 import type { DatabaseSync } from 'node:sqlite';
-import { greetingTwiml, dialOwnerTwiml } from '../telephony/twiml.js';
+import { LandmarkKB } from '../landmarks/kb.js';
+import { guideTurn, GREETING } from '../telephony/guide.js';
+import { askTwiml, dialOwnerTwiml, hangupTwiml } from '../telephony/twiml.js';
 
 const norm = (p?: string | null) => (p || '').replace(/\D/g, '').slice(-10);
 
-// Greet the driver by name if their number matches an active (assigned, not delivered) delivery.
 function driverNameFor(db: DatabaseSync, fromPhone?: string): string | undefined {
   const f = norm(fromPhone);
   if (!f) return undefined;
@@ -19,21 +21,31 @@ function driverNameFor(db: DatabaseSync, fromPhone?: string): string | undefined
 
 export function twilioRouter(db: DatabaseSync, ownerPhone: string): Router {
   const r = Router();
-  // Twilio sends application/x-www-form-urlencoded — parse it just for this route.
   r.post('/voice/twilio-inbound', urlencoded({ extended: false }), (req, res) => {
     const digit = String(req.body?.Digits ?? '');
-    const home: any = db.prepare('select landmark_notes from locations where is_home=1').get();
-    const directions = home?.landmark_notes || '';
+    const spoken = String(req.body?.SpeechResult ?? '');
+    const attempt = Number(req.query?.n ?? req.body?.n ?? 0) || 0;
+    const isOpening = !spoken && !digit && !req.query?.silent && attempt === 0;
 
-    let xml: string;
-    if (digit === '9') {
-      xml = dialOwnerTwiml(ownerPhone);
-    } else {
-      // initial call OR "press 1 to repeat"
+    const send = (xml: string) => res.type('text/xml').send(xml);
+
+    // Keypad "9" → owner, any time.
+    if (digit === '9') { send(dialOwnerTwiml('Maalik se jod raha hoon, ek minute.', ownerPhone)); return; }
+
+    // First turn: greet the driver (by name if we know him) and ask where he is.
+    if (isOpening) {
       const name = driverNameFor(db, req.body?.From);
-      xml = greetingTwiml(directions, name);
+      const hello = name ? `Namaste ${name}! ${GREETING}` : GREETING;
+      send(askTwiml(hello, 0));
+      return;
     }
-    res.type('text/xml').send(xml);
+
+    // Subsequent turns: decide the next leg from what the driver said.
+    const turn = guideTurn(spoken, { kb: new LandmarkKB(db), attempt });
+    const nextN = turn.progressed ? 0 : attempt + 1; // reset the miss counter when we made progress
+    if (turn.next === 'dial') { send(dialOwnerTwiml(turn.say, ownerPhone)); return; }
+    if (turn.next === 'hangup') { send(hangupTwiml(turn.say)); return; }
+    send(askTwiml(turn.say, nextN));
   });
   return r;
 }
