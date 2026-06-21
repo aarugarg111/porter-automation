@@ -64,7 +64,28 @@ export default function DeliveryDetail({ id, onBack }: Props) {
             <dd><span className="chip confirm-badge">✓ confirmed {fmtTime(d.receiver_confirmed_at)}</span></dd>
           </>
         )}
+        {d.driver_whatsapp && (
+          <>
+            <dt>Driver WhatsApp</dt>
+            <dd>📱 {d.driver_whatsapp}</dd>
+          </>
+        )}
       </dl>
+
+      {!!(d.calls && d.calls.length) && (
+        <>
+          <h3>Driver calls</h3>
+          {d.calls!.map((c) => (
+            <div key={c.id} className="inbound-msg">
+              <span className="tag other">📞 call</span>
+              <div className="body">
+                {c.last_spoken || 'connected'}
+                <div className="from">{c.from_phone} · {c.turns} turns · {fmtTime(c.created_at)}</div>
+              </div>
+            </div>
+          ))}
+        </>
+      )}
 
       {hasUpi && (
         <div className="upi-pay">

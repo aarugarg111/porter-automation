@@ -25,6 +25,18 @@ const TYPE_TO_STATUS: Record<string, Status|undefined> = {
 // the delivery is DELIVERED *and* the fare is known. Idempotent + order-independent, so it
 // works whether Porter's "delivered" or "fare" notification lands first (HANDOFF §9 ordering bug:
 // previously the receiver could be told "₹0" if the fare arrived after the delivered event).
+// When I'm paying by UPI and we have the driver's WhatsApp (captured on the inbound call), ask him
+// for his UPI QR/id after delivery — his reply is captured by the inbound handler and surfaced to me.
+async function maybeRequestDriverQr(db: DatabaseSync, msgr: Messenger, deliveryId: number) {
+  const d: any = db.prepare('select * from deliveries where id=?').get(deliveryId);
+  if (!d) return;
+  if (d.payer !== 'ME') return;                                    // only when I pay
+  if (d.payment_method && d.payment_method !== 'UPI') return;      // cash/wallet → no QR needed
+  if (!d.driver_whatsapp || d.driver_qr_requested_at) return;      // need WhatsApp; ask once
+  await msgr.requestDriverQr(d.driver_whatsapp, d.porter_order_id || '');
+  db.prepare("update deliveries set driver_qr_requested_at=? where id=?").run(now(), d.id);
+}
+
 async function maybeSettleReceiverPayment(db: DatabaseSync, msgr: Messenger, deliveryId: number) {
   const d:any = db.prepare('select * from deliveries where id=?').get(deliveryId);
   if (!d) return;
@@ -63,5 +75,6 @@ export async function applyParsed(db: DatabaseSync, msgr: Messenger, p: ParsedNo
     const drop = getLocation(db, d.drop_location_id);
     if (drop?.phone) await msgr.confirmReceiver(drop.phone, d.porter_order_id || '');
     await maybeSettleReceiverPayment(db, msgr, d.id); // no-op if fare not known yet (RECEIPT will retry)
+    await maybeRequestDriverQr(db, msgr, d.id);       // ME + UPI + driver WhatsApp → ask driver for QR
   }
 }
