@@ -15,11 +15,14 @@ export interface Delivery {
   driver_name?: string;
   driver_phone?: string;
   late: boolean;
+  receiver_confirmed_at?: string | null;
+  late_alerted_at?: string | null;
   created_at: string;
   started_at?: string;
   reached_at?: string;
   delivered_at?: string;
   events?: DeliveryEvent[];
+  inbound?: InboundMessage[];
 }
 
 export interface DeliveryEvent {
@@ -28,6 +31,17 @@ export interface DeliveryEvent {
   event_type: string;
   status?: string;
   raw?: string;
+  created_at: string;
+}
+
+export interface InboundMessage {
+  id: number;
+  delivery_id: number | null;
+  from_phone: string;
+  body?: string | null;
+  media_kind?: string | null;
+  media_ref?: string | null;
+  kind: string; // receiver_confirm | payment_upi | payment_qr | other
   created_at: string;
 }
 
@@ -98,5 +112,15 @@ export async function createIntent(body: IntentBody): Promise<{ id: number }> {
 
 export async function getLedger(): Promise<LedgerResponse> {
   const res = await fetch('/api/ledger');
+  return res.json();
+}
+
+export interface AlertsResponse {
+  count: number;
+  late: Delivery[];
+}
+
+export async function getAlerts(): Promise<AlertsResponse> {
+  const res = await fetch('/api/alerts');
   return res.json();
 }

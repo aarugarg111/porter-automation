@@ -18,12 +18,13 @@ export default function Ledger({ onBack }: Props) {
 
   return (
     <div className="ledger">
-      <button onClick={onBack}>← Back</button>
+      <button className="back-btn" onClick={onBack}>← Back</button>
       <h2>Payment Ledger</h2>
-      <p>
-        Pending: <strong>{rs(data.totals.pending)}</strong> · Settled:{' '}
-        <strong>{rs(data.totals.settled)}</strong> · Count: {data.totals.count}
-      </p>
+      <div className="ledger-stats">
+        <div className="stat"><div className="n pending">{rs(data.totals.pending)}</div><div className="l">Pending</div></div>
+        <div className="stat"><div className="n settled">{rs(data.totals.settled)}</div><div className="l">Settled</div></div>
+        <div className="stat"><div className="n">{data.totals.count}</div><div className="l">Today</div></div>
+      </div>
       <table>
         <thead>
           <tr>
@@ -40,7 +41,7 @@ export default function Ledger({ onBack }: Props) {
               <td>{r.id}</td>
               <td>{r.payer}</td>
               <td>{r.payment_method ?? '—'}</td>
-              <td>{r.payment_status}</td>
+              <td><span className={`pay-dot${r.payment_status === 'settled' ? ' settled' : ''}`}>{r.payment_status}</span></td>
               <td>{rs(r.amount)}</td>
             </tr>
           ))}

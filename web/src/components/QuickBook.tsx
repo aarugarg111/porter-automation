@@ -14,14 +14,20 @@ export default function QuickBook({ onSelect }: Props) {
 
   return (
     <div className="quick-book">
-      <h2>Quick Book</h2>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+      <div className="section-head">
+        <h2>Quick Book</h2>
+        <span className="count-pill">1 tap</span>
+      </div>
+      <div className="chip-row">
+        {locations.length === 0 && <p className="empty">No saved shops yet.</p>}
         {locations.map((loc) => (
           <button
             key={loc.id}
             className="location-chip"
             onClick={() => onSelect(loc)}
+            title={loc.relationship}
           >
+            <span className={`rel-dot ${loc.relationship}`} />
             {loc.nickname}
           </button>
         ))}

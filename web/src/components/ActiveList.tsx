@@ -30,13 +30,43 @@ export default function ActiveList({ deliveries: propDeliveries, onSelect }: Pro
     };
   }, [propDeliveries]);
 
+  const lateCount = deliveries.filter((d) => d.late).length;
+  const confirmedCount = deliveries.filter((d) => d.receiver_confirmed_at).length;
+
   return (
-    <div className="active-list">
-      <h2>Active Deliveries</h2>
-      {deliveries.length === 0 && <p>No active deliveries.</p>}
-      {deliveries.map((d) => (
-        <DeliveryRow key={d.id} delivery={d} onSelect={onSelect} />
-      ))}
-    </div>
+    <>
+      {lateCount > 0 && (
+        <div className="alert-banner" role="alert">
+          <span className="pulse" />
+          {lateCount} {lateCount === 1 ? 'delivery is' : 'deliveries are'} running late — tap to check.
+        </div>
+      )}
+
+      <div className="stat-strip">
+        <div className="stat flight">
+          <div className="n">{deliveries.length}</div>
+          <div className="l">In&nbsp;flight</div>
+        </div>
+        <div className="stat late">
+          <div className="n">{lateCount}</div>
+          <div className="l">Late</div>
+        </div>
+        <div className="stat">
+          <div className="n">{confirmedCount}</div>
+          <div className="l">Confirmed</div>
+        </div>
+      </div>
+
+      <div className="active-list">
+        <div className="section-head">
+          <h2>Active Deliveries</h2>
+          <span className="count-pill">{deliveries.length}</span>
+        </div>
+        {deliveries.length === 0 && <p className="empty">No active deliveries — book one above.</p>}
+        {deliveries.map((d) => (
+          <DeliveryRow key={d.id} delivery={d} onSelect={onSelect} />
+        ))}
+      </div>
+    </>
   );
 }
