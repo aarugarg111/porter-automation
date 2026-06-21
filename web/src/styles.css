@@ -311,3 +311,36 @@ select:focus { outline: 2px solid var(--blue-bd); border-color: var(--primary); 
   .brand { font-size: 0.92rem; }
   .nav button { padding: 6px 9px; font-size: 0.75rem; }
 }
+
+/* ---- Capture (manual paste of a Porter notification) ---- */
+.capture-hint { color: var(--muted); font-size: 0.9rem; margin: 2px 0 12px; }
+.capture-text {
+  font: inherit; width: 100%; padding: 12px 13px; resize: vertical; min-height: 110px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text); margin-bottom: 12px;
+}
+.capture-text:focus { outline: 2px solid var(--blue-bd); border-color: var(--primary); }
+.field input {
+  font: inherit; font-weight: 600; padding: 11px 12px; width: 100%;
+  border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--text);
+}
+.field input:focus { outline: 2px solid var(--blue-bd); border-color: var(--primary); }
+.example-chip {
+  border-radius: 999px; padding: 7px 13px; font-weight: 600; font-size: 0.85rem;
+  border: 1px dashed var(--border-strong); background: var(--surface-2); color: var(--muted);
+}
+.example-chip:hover { border-style: solid; border-color: var(--primary); color: var(--primary); background: var(--blue-bg); }
+.capture-result {
+  border-radius: var(--radius-sm); padding: 11px 14px; margin: 14px 0 4px;
+  font-weight: 600; font-size: 0.9rem; border: 1px solid transparent;
+}
+.capture-result.green { background: var(--green-bg); border-color: var(--green-bd); color: var(--green); }
+.capture-result.amber { background: var(--amber-bg); border-color: var(--amber-bd); color: var(--amber); }
+.capture-result.red   { background: var(--red-bg);   border-color: var(--red-bd);   color: #8f2727; }
+.link-btn {
+  background: transparent; border: none; color: var(--primary); font-weight: 600;
+  padding: 10px 0; margin-top: 6px; font-size: 0.88rem;
+}
+.link-btn:hover { background: transparent; text-decoration: underline; }
+.capture-note { color: var(--faint); font-size: 0.78rem; }

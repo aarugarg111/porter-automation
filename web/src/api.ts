@@ -129,6 +129,26 @@ export async function getLedger(): Promise<LedgerResponse> {
   return res.json();
 }
 
+export interface CaptureResult {
+  ok: boolean;
+  matched: boolean;
+  reason?: string;       // 'unparsed' | 'no-open-delivery' | 'unauthorized'
+  deliveryId?: number;
+}
+
+// Manually feed a Porter notification (paste from the phone) into the same /capture pipeline the
+// Android listener uses. `token` (if the box sets CAPTURE_TOKEN) is sent as x-capture-token; it is
+// stored on the owner's device only, never in the bundle.
+export async function postCapture(text: string, token?: string): Promise<CaptureResult> {
+  const res = await fetch('/api/capture', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(token ? { 'x-capture-token': token } : {}) },
+    body: JSON.stringify({ text }),
+  });
+  if (res.status === 401) return { ok: false, matched: false, reason: 'unauthorized' };
+  return res.json();
+}
+
 export interface AlertsResponse {
   count: number;
   late: Delivery[];

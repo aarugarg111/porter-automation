@@ -85,19 +85,28 @@ creates — that's the saved login.)
 
 ---
 
-## 6. Android capture app (auto-forward Porter notifications)
-**Why:** so you don't have to copy Porter notifications by hand — the phone forwards them.
-*Not needed for the call POC; do it when you want full automation.*
+## 6. Phone app for the owner — mobile website now, APK later
+The cockpit **is** a mobile website: open the box URL on the phone to book deliveries, see live
+status, and **Capture** (a screen that lets you paste a Porter notification to move a delivery
+forward — the same pipeline the auto-forwarder uses). It's now an installable **PWA** (open in
+Chrome → menu → *Add to Home Screen*), so it already behaves like an app — no build needed.
 
-1. Install **Android Studio** (free): https://developer.android.com/studio
-2. Open the `android/` folder in Android Studio → wait for Gradle to sync.
-3. Connect the Porter phone by USB (enable *Developer options → USB debugging*) → press **Run** ▶,
-   OR **Build → Build APK** and copy the APK to the phone to install.
-4. In the installed app: enter the **backend URL** (your tunnel/box URL), enter the **CAPTURE_TOKEN**
-   if you set one (step 7) → **Save** → **Grant notification access** (toggle it on for this app) →
-   **Send test ping** (should say "Test OK").
+**Turn it into a real APK (no Android Studio coding):**
+1. Make sure the box is on its HTTPS URL (the item-2 tunnel, or a real domain).
+2. Go to https://www.pwabuilder.com → paste the URL → **Android** → download the signed APK/AAB.
+   (CLI alternative: `npx @bubblewrap/cli init --manifest <box-url>/manifest.webmanifest` → `bubblewrap build`.)
+3. Install the APK on the Porter phone.
 
-**Get me:** nothing — it's on your machine/phone. I can't build it here (no Android SDK on this box).
+**Auto-capture Porter notifications (optional).** A web/PWA APK *cannot* read another app's
+notifications — that's a native-only permission. Two ways to get true auto-forward:
+- **No-code (recommended):** install **MacroDroid** (free) → trigger *Notification received from
+  Porter* → action *HTTP POST* to `<box-url>/capture` with the notification text and header
+  `x-capture-token: <your token>`. Works today, nothing to build.
+- **Native app:** the `android/` project (a NotificationListenerService) does the same — open it in
+  Android Studio once and install. Use this only if you want it baked into the installed app.
+
+**Get me:** nothing to build here. I can walk you through PWABuilder or set up the MacroDroid macro
+with you when the box has a public URL.
 
 ---
 

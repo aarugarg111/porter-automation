@@ -1,5 +1,5 @@
 import { vi, test, expect, beforeEach, afterEach } from 'vitest';
-import { listDeliveries, getDelivery, listLocations, createIntent, getLedger } from './api';
+import { listDeliveries, getDelivery, listLocations, createIntent, getLedger, postCapture } from './api';
 
 const mockFetch = vi.fn();
 
@@ -68,4 +68,34 @@ test('getLedger calls /api/ledger and returns rows + totals', async () => {
   const result = await getLedger();
   expect(mockFetch).toHaveBeenCalledWith('/api/ledger');
   expect(result).toEqual(ledger);
+});
+
+test('postCapture POSTs to /api/capture with the token header and returns the result', async () => {
+  mockFetch.mockReturnValueOnce(makeJsonResponse({ ok: true, matched: true, deliveryId: 9 }));
+
+  const result = await postCapture('Your order has been delivered', 'sekret');
+  expect(mockFetch).toHaveBeenCalledWith('/api/capture', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', 'x-capture-token': 'sekret' },
+    body: JSON.stringify({ text: 'Your order has been delivered' }),
+  });
+  expect(result).toEqual({ ok: true, matched: true, deliveryId: 9 });
+});
+
+test('postCapture omits the token header when none is given', async () => {
+  mockFetch.mockReturnValueOnce(makeJsonResponse({ ok: true, matched: false, reason: 'unparsed' }));
+
+  await postCapture('gibberish');
+  expect(mockFetch).toHaveBeenCalledWith('/api/capture', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ text: 'gibberish' }),
+  });
+});
+
+test('postCapture maps a 401 to an unauthorized result without parsing the body', async () => {
+  mockFetch.mockReturnValueOnce(makeJsonResponse({ error: 'unauthorized' }, 401));
+
+  const result = await postCapture('anything', 'wrong-token');
+  expect(result).toEqual({ ok: false, matched: false, reason: 'unauthorized' });
 });
