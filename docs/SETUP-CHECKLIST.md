@@ -102,6 +102,8 @@ creates — that's the saved login.)
 ---
 
 ## 7. Environment variables on the box
+The app **auto-loads `.env`** on start (no extra flags) — inline vars like `PORTER_LIVE=1 npm start`
+still override it.
 1. In the repo on the box: `cp .env.example .env`
 2. Edit `.env`:
    - `OWNER_ALERT_PHONE=9910774205` ← Aryan's number (gets late alerts + the "press 9 → owner" call)
