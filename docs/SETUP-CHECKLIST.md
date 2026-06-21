@@ -101,7 +101,8 @@ Chrome → menu → *Add to Home Screen*), so it already behaves like an app —
 notifications — that's a native-only permission. Two ways to get true auto-forward:
 - **No-code (recommended):** install **MacroDroid** (free) → trigger *Notification received from
   Porter* → action *HTTP POST* to `<box-url>/capture` with the notification text and header
-  `x-capture-token: <your token>`. Works today, nothing to build.
+  `x-capture-token: <your token>`. Works today, nothing to build. **Exact macro:
+  [docs/MACRODROID-CAPTURE.md](MACRODROID-CAPTURE.md).**
 - **Native app:** the `android/` project (a NotificationListenerService) does the same — open it in
   Android Studio once and install. Use this only if you want it baked into the installed app.
 
