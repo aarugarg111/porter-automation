@@ -100,8 +100,11 @@ Drove the whole flow end-to-end in fake mode and closed four code-level gaps. Al
 
 **New env (see `.env.example`):** `DEFAULT_ETA_MINUTES`, `OWNER_ALERT_PHONE`, `LATE_SWEEP_MS`.
 
-**Still open after this pass (genuine gaps, need product/ops decisions):**
-- **Job 4 AI call is not auto-fired.** `confirmReceiverByCall` exists + `POST /voice/confirm-receiver`, but nothing triggers it automatically on DELIVERED (auto-calling every drop would burn the ₹2k/mo budget). Intended as: WhatsApp first → AI call only if no inbound confirmation within N minutes. That "no-reply timer" is not built yet (now that inbound confirmation IS captured, this is wireable).
+**Follow-ups since the initial pass (2026-06-21):**
+- ✅ **Job 4 no-reply auto-call (DONE).** `sweepReceiverConfirmations` (`src/coordination/confirm_sweep.ts`) places ONE budget-gated AI call to the receiver when no WhatsApp confirmation lands within `CONFIRM_GRACE_MINUTES` (default 15) of `delivered_at`. Idempotent via `receiver_call_at`; over budget → nudges the owner to confirm manually. **Opt-in** via `AUTO_CONFIRM_CALL=1` (off by default — placing calls costs money). Schema: + `deliveries.delivered_at`, `deliveries.receiver_call_at`. Tests: `tests/confirm_sweep.test.ts`.
+- ✅ **Dashboard surfaces the new data (DONE, PR #2).** Late-alert banner, `receiver_confirmed_at` badge, inbound UPI/QR feed all shown; colour-coded, mobile-first; hash routing.
+
+**Still open (genuine gaps, need ops/product decisions):**
 - **Budget is only recorded if `/voice/status` is called** (Bolna/Exotel webhook). Verify the webhook fires on call end, else the ₹2k cap never advances.
-- **`receiver_confirmed_at` / inbound rows are not yet surfaced in the React dashboard** (exposed via `GET /deliveries/:id` → `inbound[]`; UI badge is a small follow-up).
 - The real `client.on('message')` handler is best-effort (untested, like the other live adapters) — verify against whatsapp-web.js once the phone is wired.
+- The auto-call result (receiver said haan/na on the AI call) isn't fed back to `receiver_confirmed_at` yet — would need the Bolna call-outcome webhook.
