@@ -32,7 +32,7 @@ export function readRouter(db: DatabaseSync): Router {
     const id = createIntent(db, parse.data); res.json({ id });
   });
   r.get('/deliveries', (_req,res) => {
-    const rows = db.prepare("select * from deliveries where status!='DELIVERED' order by created_at desc").all();
+    const rows = db.prepare("select * from deliveries where status not in ('DELIVERED','CANCELLED') order by created_at desc").all();
     res.json(rows.map((d:any)=> ({ ...d, late: isLate(d, Date.now()) })));
   });
   // Job 2: open deliveries currently flagged late/diverted (dashboard alert badge).

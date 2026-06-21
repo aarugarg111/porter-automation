@@ -8,10 +8,11 @@ interface Props {
 // What the parser understands today (src/capture/parsers.ts) — shown as one-tap examples so the
 // owner can try it, and so the wording stays close to real Porter notifications.
 const EXAMPLES: { label: string; text: string }[] = [
-  { label: 'Driver assigned', text: 'Partner Ramesh (9876543210) assigned to your order PRTR1234' },
+  { label: 'Driver assigned', text: 'Shrimanta Mandal has been assigned for your order CRN1657868951' },
+  { label: 'Cancelled', text: 'Your order CRN1657868951 has been cancelled.' },
   { label: 'Picked up', text: 'Your order has been picked up' },
   { label: 'Reached drop', text: 'Driver reached the drop location' },
-  { label: 'Delivered', text: 'Your order PRTR1234 has been delivered' },
+  { label: 'Delivered', text: 'Your order CRN1657868951 has been delivered' },
   { label: 'Fare receipt', text: 'Trip complete. Total fare Rs 1,250' },
 ];
 

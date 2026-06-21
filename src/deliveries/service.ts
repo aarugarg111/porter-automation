@@ -58,6 +58,14 @@ export async function applyParsed(db: DatabaseSync, msgr: Messenger, p: ParsedNo
     await maybeSettleReceiverPayment(db, msgr, d.id); // fare may have arrived after "delivered"
     return;
   }
+  // Porter cancelled the order → stop coordinating (drops off the active list + sweeps). Terminal,
+  // unless already delivered. No driver/receiver messages; the owner already got Porter's own notice.
+  if (p.type==='CANCELLED') {
+    if (!canTransition(d.status, 'CANCELLED')) return;
+    db.prepare('update deliveries set status=?, porter_order_id=coalesce(?,porter_order_id) where id=?').run('CANCELLED', p.orderId??null, d.id);
+    db.prepare('insert into events (delivery_id,status,source,raw_text,created_at,event_type) values (?,?,?,?,?,?)').run(d.id, 'CANCELLED', 'notif', null, now(), 'status');
+    return;
+  }
   const to = TYPE_TO_STATUS[p.type]; if (!to) return;
   if (!canTransition(d.status, to)) return;
   db.prepare('update deliveries set status=?, driver_name=coalesce(?,driver_name), driver_phone=coalesce(?,driver_phone), porter_order_id=coalesce(?,porter_order_id) where id=?')
