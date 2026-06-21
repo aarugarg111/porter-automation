@@ -14,15 +14,29 @@ export interface Delivery {
   payment_upi_id?: string;
   driver_name?: string;
   driver_phone?: string;
+  driver_whatsapp?: string | null;
   late: boolean;
   receiver_confirmed_at?: string | null;
   late_alerted_at?: string | null;
+  driver_qr_requested_at?: string | null;
   created_at: string;
   started_at?: string;
   reached_at?: string;
   delivered_at?: string;
   events?: DeliveryEvent[];
   inbound?: InboundMessage[];
+  calls?: DriverCall[];
+}
+
+export interface DriverCall {
+  id: number;
+  call_sid?: string | null;
+  delivery_id: number | null;
+  from_phone?: string | null;
+  last_spoken?: string | null;
+  turns: number;
+  created_at: string;
+  updated_at?: string | null;
 }
 
 export interface DeliveryEvent {

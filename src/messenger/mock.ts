@@ -5,4 +5,5 @@ export class MockMessenger implements Messenger {
   async confirmReceiver(phone:string, orderId:string){ this.sent.push({kind:'confirm',phone,extra:orderId}); }
   async notifyReceiverPayment(phone:string, amountPaise:number){ this.sent.push({kind:'payment',phone,extra:amountPaise}); }
   async notifyOwner(phone:string, text:string){ this.sent.push({kind:'owner',phone,extra:text}); }
+  async requestDriverQr(phone:string, orderId:string){ this.sent.push({kind:'driver_qr',phone,extra:orderId}); }
 }

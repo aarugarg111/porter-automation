@@ -65,7 +65,7 @@ for (const prefix of ['/', '/api']) {
   app.use(prefix, captureRouter(db, messenger));
   app.use(prefix, voiceRouter(svc));
   app.use(prefix, inboundRouter(db, messenger, alertPhone));
-  app.use(prefix, twilioRouter(db, alertPhone)); // inbound driver call → Hindi directions; "9" dials alertPhone
+  app.use(prefix, twilioRouter(db, alertPhone, messenger)); // inbound driver call → WhatsApp + Hindi directions; "9" dials alertPhone
 }
 
 // Single-box deploy: serve the built dashboard if present (hash routing → no SPA fallback needed).

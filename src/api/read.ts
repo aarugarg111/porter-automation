@@ -45,7 +45,8 @@ export function readRouter(db: DatabaseSync): Router {
     const d = db.prepare('select * from deliveries where id=?').get(req.params.id);
     const events = db.prepare('select * from events where delivery_id=? order by created_at').all(req.params.id);
     const inbound = db.prepare('select * from inbound_messages where delivery_id=? order by created_at').all(req.params.id);
-    res.json({ ...(d as any), events, inbound });
+    const calls = db.prepare('select * from driver_calls where delivery_id=? order by created_at').all(req.params.id);
+    res.json({ ...(d as any), events, inbound, calls });
   });
   r.get('/locations', (_req,res) => {
     res.json(listLocations(db));

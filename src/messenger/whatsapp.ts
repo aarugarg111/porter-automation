@@ -37,4 +37,12 @@ export class WhatsAppMessenger implements Messenger {
   async notifyOwner(phone: string, text: string) {
     await this.client.sendText(phone, text);
   }
+
+  // After delivery, ask the driver for their UPI QR/id so the owner can pay (ME + UPI).
+  async requestDriverQr(phone: string, orderId: string) {
+    await this.client.sendText(
+      phone,
+      `Namaste! Order ${orderId} deliver ho gaya. Payment ke liye apna UPI QR ya UPI id yahin bhej dijiye — hum turant pay kar denge. Dhanyavaad.`,
+    );
+  }
 }

@@ -10,7 +10,8 @@ CREATE TABLE IF NOT EXISTS deliveries (
   payer TEXT NOT NULL DEFAULT 'ME', payment_status TEXT NOT NULL DEFAULT 'pending',
   payment_method TEXT, payment_qr_url TEXT, payment_upi_id TEXT, drop_address_text TEXT,
   expected_minutes INTEGER, started_at TEXT, reached_at TEXT, created_at TEXT NOT NULL,
-  late_alerted_at TEXT, receiver_confirmed_at TEXT, delivered_at TEXT, receiver_call_at TEXT);
+  late_alerted_at TEXT, receiver_confirmed_at TEXT, delivered_at TEXT, receiver_call_at TEXT,
+  driver_whatsapp TEXT, driver_qr_requested_at TEXT);
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY, delivery_id INTEGER NOT NULL, status TEXT NOT NULL,
   source TEXT NOT NULL, raw_text TEXT, created_at TEXT NOT NULL,
@@ -28,3 +29,7 @@ CREATE TABLE IF NOT EXISTS inbound_messages (
   id INTEGER PRIMARY KEY, delivery_id INTEGER, from_phone TEXT NOT NULL,
   body TEXT, media_kind TEXT, media_ref TEXT, kind TEXT NOT NULL DEFAULT 'other',
   created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS driver_calls (
+  id INTEGER PRIMARY KEY, call_sid TEXT, delivery_id INTEGER, from_phone TEXT,
+  last_spoken TEXT, turns INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL, updated_at TEXT);

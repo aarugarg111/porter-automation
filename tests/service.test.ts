@@ -68,6 +68,22 @@ test('RECEIVER payment is correct even when the fare notification arrives AFTER 
   expect(payments[0].extra).toBe(15000);
 });
 
+test('ME pays + driver WhatsApp known → on DELIVERED the driver is asked for his UPI QR (once)', async () => {
+  const db = getDb(':memory:'); seedHome(db);
+  const recv = createLocation(db, { nickname:'Q', relationship:'customer', phone:'321', default_payer:'ME' }) as number;
+  const id = createIntent(db, { direction:'SEND', otherLocationId: recv, payer:'ME' });
+  const m = new MockMessenger();
+  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'PRTRQ', driverName:'D', driverPhone:'9000000000' });
+  db.prepare("update deliveries set driver_whatsapp='9123456780' where id=?").run(id); // captured on the call
+  await applyParsed(db, m, { deliveryId:id, type:'DELIVERED', orderId:'PRTRQ' });
+  const qr = m.sent.filter((s:{kind:string;phone:string})=>s.kind==='driver_qr');
+  expect(qr.length).toBe(1);
+  expect(qr[0].phone).toBe('9123456780');
+  // idempotent: re-applying DELIVERED doesn't re-ask
+  await applyParsed(db, m, { deliveryId:id, type:'DELIVERED', orderId:'PRTRQ' });
+  expect(m.sent.filter((s:{kind:string})=>s.kind==='driver_qr').length).toBe(1);
+});
+
 test('PICKED_UP stamps started_at; REACHED_AREA stamps reached_at', async () => {
   const db = getDb(':memory:'); seedHome(db);
   const recv = createLocation(db, { nickname:'Trip', relationship:'customer' }) as number;
