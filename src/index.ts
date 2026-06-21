@@ -15,6 +15,7 @@ import { BudgetTracker } from './budget/tracker.js';
 import { LandmarkKB } from './landmarks/kb.js';
 import { CoordinationService } from './coordination/service.js';
 import { sweepLateDeliveries } from './tracking/monitor.js';
+import { sweepReceiverConfirmations } from './coordination/confirm_sweep.js';
 import { inboundRouter } from './api/inbound.js';
 import { inboundMediaDir } from './messenger/whatsapp_client.js';
 import { handleInboundWhatsApp } from './capture/inbound.js';
@@ -51,3 +52,11 @@ const sweepMs = Number(process.env.LATE_SWEEP_MS ?? 60000);
 setInterval(() => {
   sweepLateDeliveries(db, messenger, alertPhone).catch((e) => console.error('[late-sweep]', e));
 }, sweepMs).unref();
+
+// Job 4: opt-in AI confirmation call when the receiver hasn't replied on WhatsApp within the
+// grace window. OFF by default (costs money) — set AUTO_CONFIRM_CALL=1 to enable.
+if (process.env.AUTO_CONFIRM_CALL === '1') {
+  setInterval(() => {
+    sweepReceiverConfirmations(db, svc, messenger, alertPhone).catch((e) => console.error('[confirm-sweep]', e));
+  }, sweepMs).unref();
+}

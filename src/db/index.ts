@@ -15,7 +15,7 @@ export function getDb(path = 'cockpit.sqlite'): DB {
 // system yet — `CREATE TABLE IF NOT EXISTS` won't ALTER an existing table).
 function migrate(db: DB) {
   const have = new Set((db.prepare('pragma table_info(deliveries)').all() as any[]).map(c => c.name));
-  for (const [col, type] of [['late_alerted_at','TEXT'], ['receiver_confirmed_at','TEXT']] as const) {
+  for (const [col, type] of [['late_alerted_at','TEXT'], ['receiver_confirmed_at','TEXT'], ['delivered_at','TEXT'], ['receiver_call_at','TEXT']] as const) {
     if (!have.has(col)) db.exec(`ALTER TABLE deliveries ADD COLUMN ${col} ${type}`);
   }
 }

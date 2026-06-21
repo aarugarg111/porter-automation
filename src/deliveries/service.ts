@@ -54,6 +54,7 @@ export async function applyParsed(db: DatabaseSync, msgr: Messenger, p: ParsedNo
     .run(d.id, to, 'notif', null, now(), 'status');
   if (to === 'PICKED_UP') db.prepare("update deliveries set started_at=? where id=? and started_at is null").run(now(), d.id);
   if (to === 'REACHED_AREA') db.prepare("update deliveries set reached_at=? where id=?").run(now(), d.id);
+  if (to === 'DELIVERED') db.prepare("update deliveries set delivered_at=? where id=? and delivered_at is null").run(now(), d.id);
   if (to==='ASSIGNED' && p.driverPhone) {
     const pickup = getLocation(db, d.pickup_location_id);
     await msgr.sendDriverDirections(p.driverPhone, pickup?.landmark_notes || '');

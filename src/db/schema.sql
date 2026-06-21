@@ -10,7 +10,7 @@ CREATE TABLE IF NOT EXISTS deliveries (
   payer TEXT NOT NULL DEFAULT 'ME', payment_status TEXT NOT NULL DEFAULT 'pending',
   payment_method TEXT, payment_qr_url TEXT, payment_upi_id TEXT, drop_address_text TEXT,
   expected_minutes INTEGER, started_at TEXT, reached_at TEXT, created_at TEXT NOT NULL,
-  late_alerted_at TEXT, receiver_confirmed_at TEXT);
+  late_alerted_at TEXT, receiver_confirmed_at TEXT, delivered_at TEXT, receiver_call_at TEXT);
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY, delivery_id INTEGER NOT NULL, status TEXT NOT NULL,
   source TEXT NOT NULL, raw_text TEXT, created_at TEXT NOT NULL,
