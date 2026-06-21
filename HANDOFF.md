@@ -3,8 +3,15 @@
 _Single-file context to resume work in a fresh session without re-reading history._
 _Last updated: 2026-06-21._
 
-> **2026-06-21 flow-gaps pass (branch `feat/flow-gaps`):** four code-level gaps found while
-> driving the flow end-to-end are now fixed + tested (backend 69, web 15). See §12.
+> **2026-06-21 — big push (7 PRs, all merged to `main`).** Backend **89** tests + web **15**, tsc/build clean.
+> - **#1** fixed 4 flow gaps (₹0 payment ordering, amount parser, Job 2 delay alerts, inbound WhatsApp capture).
+> - **#2** colourful mobile-first dashboard refresh (hash routing; surfaces alerts/confirmations/UPI).
+> - **#3** Job 4 no-reply auto-confirm AI call (opt-in `AUTO_CONFIRM_CALL`, budget-gated).
+> - **#4** single-box hosting (backend serves the dashboard) + ingest auth (`CAPTURE_TOKEN`) + Android `Poster` retry/token.
+> - **#5/#6** **inbound driver call → conversational Hindi guidance** (Twilio; landmark KB; press 9 = owner). The headline POC.
+> - **#7** call captures the driver's real WhatsApp (keypad) → sends shop location+photo; multi-delivery call linking; on delivery, ask driver for UPI QR.
+>
+> **Details: §12. What's still needed FROM YOU (Sarthak): §13.**
 
 ## 1. What this is (1 paragraph)
 A system that automates the **post-booking coordination** for a shop (Aryan Enterprises, Badarpur,
@@ -106,7 +113,28 @@ Drove the whole flow end-to-end in fake mode and closed four code-level gaps. Al
 
 - ✅ **Job 1 inbound driver call — CONVERSATIONAL Hindi guidance (DONE, the headline POC).** `POST /voice/twilio-inbound` (`src/api/twilio.ts` + `src/telephony/twiml.ts` + `src/telephony/guide.ts`) runs a multi-turn call: asks where the driver is → Twilio `<Gather input="speech" hi-IN>` STT → `guideTurn` matches the landmark KB → speaks the next leg → loops until arrival; press 9 / stuck / silence → dials the owner. **Never invents a turn** — unknown input routes to the Canara Bank waypoint, then escalates to the owner. Directions live in the editable `landmarks` table (owner's local knowledge). No FloBiz infra; Twilio (~₹600-800/mo live). Setup: `docs/VOICE-CALL-SETUP.md`. Tests: `tests/twilio.test.ts` (13).
 
+- ✅ **Single-box hosting + ingest auth (DONE, PR #4).** Backend serves the built dashboard at `/`, API at `/api`+root, `GET /health`; opt-in `CAPTURE_TOKEN` guard on `/capture`+`/whatsapp/inbound`. `npm run build:web && npm start` → whole thing on :3000. Dockerfile builds web in-image. Android `Poster` got retry + `x-capture-token`. Hostable on the headless box. See `docs/DEPLOY.md`.
+- ✅ **Call → WhatsApp → payment loop + multi-delivery (DONE, PR #7).** On the call we capture the driver's REAL WhatsApp on the keypad (Porter masks caller ID) → send the shop location pin + shopfront photo to it (`deliveries.driver_whatsapp`). Every call turn is logged to `driver_calls` and linked to the right delivery (several can be active: phone-match → exactly-one-phoneless back-fill → most-recent). On DELIVERED, if I pay by UPI and have the driver's WhatsApp → ask him for his UPI QR/id (once); his reply is captured by the inbound handler. Schema: + `deliveries.driver_whatsapp, driver_qr_requested_at`, `driver_calls` table. Files: `src/telephony/call_log.ts`, `src/api/twilio.ts`, `src/telephony/twiml.ts`, `src/deliveries/service.ts`. Tests: `tests/call_log.test.ts`, `tests/twilio.test.ts`.
+
 **Still open (genuine gaps, need ops/product decisions):**
-- **Budget is only recorded if `/voice/status` is called** (Bolna/Exotel webhook). Verify the webhook fires on call end, else the ₹2k cap never advances.
-- The real `client.on('message')` handler is best-effort (untested, like the other live adapters) — verify against whatsapp-web.js once the phone is wired.
-- The auto-call result (receiver said haan/na on the AI call) isn't fed back to `receiver_confirmed_at` yet — would need the Bolna call-outcome webhook.
+- **Voice calling provider = Twilio** (the `BolnaAdapter` is unused legacy; `confirm_sweep`/`/voice/status` budget path still references the old telephony seam). The inbound driver call uses `/voice/twilio-inbound`. If Job 4 (outbound receiver confirm call) is ever turned on, point it at Twilio too.
+- The real `client.on('message')` WhatsApp handler is best-effort (untested, like the other live adapters) — verify against whatsapp-web.js once the phone is wired.
+- **Multi-delivery + masked caller ID:** if 2+ deliveries are active and the driver calls from a Porter proxy, the call links to the most-recent active as a best guess (directions are the same shop, so guidance is unaffected; only the call-log/QR attribution can be off). Fine for the common 1-active case; revisit if concurrency is routine.
+- Deferred code (not blocking): operator actions (cancel a delivery, mark an ME-payment settled), add-shop form in the dashboard.
+
+## 13. What's needed FROM YOU (Sarthak) — nothing else is code
+Everything below needs a phone, an account, or a device — I can't do it from here.
+
+| # | What | Why / how | Blocks |
+|---|------|-----------|--------|
+| 1 | **Twilio trial account + a number** | Free trial. Point the number's Voice "A call comes in" webhook at `https://<box>/voice/twilio-inbound` (POST). `docs/VOICE-CALL-SETUP.md`. | The driver-call POC |
+| 2 | **Expose the headless box** | `cloudflared tunnel --url http://localhost:3000` (free) → gives the public HTTPS URL for #1. | #1 |
+| 3 | **Point Porter's pickup number at Twilio** | Set the Twilio number as the Porter pickup contact, or call-forward Aryan's SIM → Twilio number, so the driver actually reaches the AI. | Real driver calls |
+| 4 | **Drop the shopfront photo** | Put `assets/shopfront.jpg` (+ optional `assets/directions-hi.ogg`) so the WhatsApp to the driver includes the photo. | Photo in WhatsApp |
+| 5 | **WhatsApp on the Porter phone** | `npm i whatsapp-web.js qrcode-terminal` → `npm run wa:login` → scan QR on **9599157340**. Then run with `PORTER_LIVE=1`. | All real WhatsApp sends |
+| 6 | **Build the Android capture app** | Open `android/` in Android Studio → build APK → install on the Porter phone → set backend URL (+ `CAPTURE_TOKEN` if set) → grant notification access → test ping. `android/README.md`. | Auto-capturing Porter notifications |
+| 7 | **Set env on the box** | `OWNER_ALERT_PHONE`=Aryan's number (press-9 + alerts), `CAPTURE_TOKEN`=a long secret (public host), optional `AUTO_CONFIRM_CALL=1`. | Correct routing / security |
+| 8 | **Send a few real Porter notifications** | During dummy runs, let `capture_inbox` see real Porter app notifications so the parsers (`src/capture/parsers.ts`) can be tuned. | Parser accuracy |
+| 9 | **Enrich the landmark KB** | Add rows to the `landmarks` table (or `src/landmarks/seed.ts`) for more start points (Mohan Estate, Sarita Vihar…) with Aryan's exact Hindi directions → fewer calls escalate to you. | Better voice guidance |
+
+**Fastest path to "the driver call works":** #2 (tunnel) → #1 (Twilio number → webhook) → call the number yourself. ~15 minutes, free.
