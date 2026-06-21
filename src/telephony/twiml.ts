@@ -1,21 +1,22 @@
 // src/telephony/twiml.ts
-// Builds Twilio TwiML for the inbound driver call. Deliberately deterministic: we PLAY a known,
-// correct Hindi directions script (no live speech recognition → nothing to mis-hear). The shop is
-// fixed, so the directions are always right. Provider = Twilio (no FloBiz infra; cheap; reliable).
+// Builds Twilio TwiML for the conversational inbound driver call. The driver speaks (Twilio does
+// Hindi speech-to-text in <Gather input="speech">), we reply with the next leg, and loop. Provider
+// = Twilio (no FloBiz infra; cheap; reliable). Decision logic lives in ./guide.ts.
 const VOICE = 'Polly.Aditi'; // Amazon Polly Hindi voice (built into Twilio <Say>)
 const LANG = 'hi-IN';
+const ACTION = '/voice/twilio-inbound';
 
 function escapeXml(s: string): string {
   return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]!));
 }
 
-// Make the curated landmark string read cleanly as speech ("Bosch+Havells" → "Bosch aur Havells").
+// Make a curated landmark string read cleanly as speech ("Bosch+Havells" → "Bosch aur Havells").
 export function forSpeech(directions: string): string {
   return directions.replace(/\s*\+\s*/g, ' aur ').replace(/\s*;\s*/g, '. ').replace(/\s+/g, ' ').trim();
 }
 
 function say(text: string): string {
-  return `<Say voice="${VOICE}" language="${LANG}">${escapeXml(text)}</Say>`;
+  return `<Say voice="${VOICE}" language="${LANG}">${escapeXml(forSpeech(text))}</Say>`;
 }
 
 function response(inner: string): string {
@@ -29,21 +30,30 @@ export function e164(phone: string): string {
   return '+' + (d.length === 10 ? '91' + d : d);
 }
 
-const ACTION = '/voice/twilio-inbound';
-
-// First turn (and the "press 1 to repeat" turn): greet + speak directions, then offer the menu.
-export function greetingTwiml(directions: string, driverName?: string): string {
-  const hi = driverName ? `Namaste ${driverName}!` : 'Namaste!';
-  const spoken = forSpeech(directions);
-  const msg = `${hi} Aryan Enterprises ke liye pickup. ${spoken}. Dohraane ke liye ek dabaaiye. Maalik se baat karne ke liye nau dabaaiye.`;
-  // Gather one digit; if the caller stays silent, repeat the directions once and hang up gracefully.
+// Ask the driver something and listen (speech + the "9 = owner" keypad fallback). On silence Twilio
+// follows the <Redirect> back into the webhook with the attempt counter bumped.
+export function askTwiml(prompt: string, attempt: number): string {
+  const a = `${ACTION}?n=${attempt}`;
+  const redirect = `${ACTION}?n=${attempt + 1}&amp;silent=1`;
   return response(
-    `<Gather numDigits="1" action="${ACTION}" method="POST" timeout="6">${say(msg)}</Gather>` +
-    say(spoken),
+    `<Gather input="speech dtmf" language="${LANG}" speechTimeout="auto" numDigits="1" action="${a}" method="POST">` +
+      say(prompt) +
+    `</Gather>` +
+    `<Redirect method="POST">${redirect}</Redirect>`,
   );
 }
 
-// "Press 9": connect the driver to the shop owner.
-export function dialOwnerTwiml(ownerPhone: string): string {
-  return response(say('Maalik se jod rahe hain. Ek minute.') + `<Dial>${escapeXml(e164(ownerPhone))}</Dial>`);
+// Speak a line, then keep listening (used after a recognised landmark).
+export function sayThenAskTwiml(line: string, attempt: number): string {
+  return askTwiml(line, attempt);
+}
+
+// "Press 9" / stuck: say a line, then connect the driver to the owner.
+export function dialOwnerTwiml(line: string, ownerPhone: string): string {
+  return response(say(line) + `<Dial>${escapeXml(e164(ownerPhone))}</Dial>`);
+}
+
+// Driver has arrived: say the final line and hang up.
+export function hangupTwiml(line: string): string {
+  return response(say(line) + '<Hangup/>');
 }

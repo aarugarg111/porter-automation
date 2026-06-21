@@ -37,5 +37,5 @@ test('seedLandmarks is idempotent', () => {
   const db = getDb(':memory:');
   seedLandmarks(db); seedLandmarks(db);
   const n = (db.prepare('select count(*) c from landmarks').get() as any).c;
-  expect(n).toBe(5);
+  expect(n).toBe(6);
 });

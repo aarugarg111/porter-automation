@@ -16,6 +16,9 @@ const CURATED = [
   { keyword:'Badarpur Flyover / Mathura Road', aliases:'flyover,badarpur flyover,mathura road,highway',
     directions:'Mathura Road par Bankey Lal Market, Metro Pillar 25 ke saamne, Canara Bank se Faridabad ki taraf 5 dukaan aage.',
     priority:40 },
+  { keyword:'Badarpur Border', aliases:'bk,badarpur border,border,badarpur metro,mohan estate,bup',
+    directions:'Badarpur Border se Mathura Road pakad ke Faridabad ki taraf seedha chaliye. Metro Pillar number 25 aur Canara Bank ki taraf aao.',
+    priority:50 },
 ];
 export function seedLandmarks(db: DatabaseSync) {
   const exists = db.prepare('select 1 from landmarks limit 1').get();
