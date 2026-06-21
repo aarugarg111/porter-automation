@@ -1,6 +1,7 @@
-export type NotifType = 'ASSIGNED'|'REACHED_PICKUP'|'PICKED_UP'|'REACHED_AREA'|'DELIVERED'|'RECEIPT';
+export type NotifType = 'ASSIGNED'|'REACHED_PICKUP'|'PICKED_UP'|'REACHED_AREA'|'DELIVERED'|'CANCELLED'|'RECEIPT';
 export interface ParsedNotif { type: NotifType; orderId?: string; driverName?: string; driverPhone?: string; amountPaise?: number; }
-const ORDER = /\b(PRTR\w+)\b/i;
+// Live Porter order ids look like "CRN1657868951"; older/alt builds used "PRTR…". Match either.
+const ORDER = /\b((?:CRN|PRTR)\w*\d+)\b/i;
 // Fare: supports "Rs", "Rs.", "INR", "₹"; comma grouping ("1,250") and paise ("150.50").
 // PROVISIONAL (HANDOFF §9) — tune against real Porter notifications.
 const FARE = /(?:Rs\.?|INR|₹)\s*([\d,]+(?:\.\d{1,2})?)/i;
@@ -15,6 +16,12 @@ export function parseNotification(text: string): ParsedNotif | null {
   const orderId = text.match(ORDER)?.[1];
   const amountPaise = parseFarePaise(text);
   if (amountPaise != null) return { type:'RECEIPT', orderId, amountPaise };
+  // Terminal: "Your order CRN… has been cancelled." / "CRN… got cancelled."
+  if (/cancel/i.test(text)) return { type:'CANCELLED', orderId };
+  // Live Porter: "<Driver Name> has been assigned for your order CRN…" — carries the name, no phone.
+  const named = text.match(/^\s*(.+?)\s+has\s+been\s+assigned\b/i);
+  if (named) return { type:'ASSIGNED', orderId, driverName: named[1].trim() };
+  // Alt/legacy: "Partner Ramesh (9876543210) assigned to …" — carries the driver's phone.
   const assigned = text.match(/(?:Partner|Driver)\s+([A-Za-z]+)\s*\((\d{10})\)/i);
   if (assigned) return { type:'ASSIGNED', orderId, driverName: assigned[1], driverPhone: assigned[2] };
   if (/delivered/i.test(text)) return { type:'DELIVERED', orderId };

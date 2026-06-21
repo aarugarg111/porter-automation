@@ -84,6 +84,37 @@ test('ME pays + driver WhatsApp known → on DELIVERED the driver is asked for h
   expect(m.sent.filter((s:{kind:string})=>s.kind==='driver_qr').length).toBe(1);
 });
 
+test('real name-only ASSIGNED stores the driver name + CRN and sends no directions (no phone yet)', async () => {
+  const db = getDb(':memory:'); seedHome(db);
+  const recv = createLocation(db, { nickname:'Nm', relationship:'customer' }) as number;
+  const id = createIntent(db, { direction:'SEND', otherLocationId: recv });
+  const m = new MockMessenger();
+  // The real Porter "assigned" notification carries the name but no phone (Porter masks it).
+  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'CRN1657868951', driverName:'Shrimanta Mandal' });
+  const d:any = db.prepare('select * from deliveries where id=?').get(id);
+  expect(d.status).toBe('ASSIGNED');
+  expect(d.driver_name).toBe('Shrimanta Mandal');
+  expect(d.porter_order_id).toBe('CRN1657868951');
+  expect(m.sent.length).toBe(0); // no phone → can't WhatsApp the driver yet (the inbound call captures it)
+});
+
+test('CANCELLED notification cancels the delivery, logs an event, and sends nothing', async () => {
+  const db = getDb(':memory:'); seedHome(db);
+  const recv = createLocation(db, { nickname:'Cx', relationship:'customer', phone:'909' }) as number;
+  const id = createIntent(db, { direction:'SEND', otherLocationId: recv });
+  const m = new MockMessenger();
+  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'CRN1657868951', driverName:'Shrimanta Mandal' });
+  await applyParsed(db, m, { deliveryId:id, type:'CANCELLED', orderId:'CRN1657868951' });
+  const d:any = db.prepare('select * from deliveries where id=?').get(id);
+  expect(d.status).toBe('CANCELLED');
+  const ev:any[] = db.prepare("select * from events where delivery_id=? and status='CANCELLED'").all(id) as any[];
+  expect(ev.length).toBe(1);
+  expect(m.sent.length).toBe(0);
+  // terminal: a later "delivered" must not resurrect a cancelled order
+  await applyParsed(db, m, { deliveryId:id, type:'DELIVERED', orderId:'CRN1657868951' });
+  expect((db.prepare('select status from deliveries where id=?').get(id) as any).status).toBe('CANCELLED');
+});
+
 test('PICKED_UP stamps started_at; REACHED_AREA stamps reached_at', async () => {
   const db = getDb(':memory:'); seedHome(db);
   const recv = createLocation(db, { nickname:'Trip', relationship:'customer' }) as number;
