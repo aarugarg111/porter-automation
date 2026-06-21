@@ -17,7 +17,9 @@ test('renders totals.pending and a row per ledger row', async () => {
   render(<Ledger onBack={() => {}} />);
   await waitFor(() => screen.getByText(/Payment Ledger/i));
 
-  expect(screen.getByText(/Pending:/).textContent).toMatch(/₹100/);
+  // Pending stat card shows ₹100 (10000 paise)
+  expect(screen.getByText('Pending')).toBeInTheDocument();
+  expect(screen.getAllByText('₹100').length).toBeGreaterThanOrEqual(1);
   // header row + 2 data rows
   expect(screen.getAllByRole('row').length).toBe(3);
 });

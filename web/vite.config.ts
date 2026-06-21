@@ -6,7 +6,8 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        // Backend base — override with VITE_API_TARGET when the API runs on another port/host.
+        target: process.env.VITE_API_TARGET || 'http://localhost:3000',
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
     },

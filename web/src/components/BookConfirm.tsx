@@ -26,36 +26,38 @@ export default function BookConfirm({ location, onBack, onDone }: Props) {
 
   return (
     <div className="book-confirm">
-      <button onClick={onBack}>← Back</button>
-      <h2>Book: {location.nickname}</h2>
-      <p>
-        <label>
-          Direction{' '}
-          <select
-            aria-label="direction"
-            value={direction}
-            onChange={(e) => setDirection(e.target.value as 'SEND' | 'RECEIVE')}
-          >
-            <option value="SEND">SEND — your shop → them</option>
-            <option value="RECEIVE">RECEIVE — them → your shop</option>
-          </select>
-        </label>
-      </p>
-      <p>
-        <label>
-          Payer{' '}
-          <select
-            aria-label="payer"
-            value={payer}
-            onChange={(e) => setPayer(e.target.value as 'ME' | 'RECEIVER')}
-          >
-            <option value="ME">ME</option>
-            <option value="RECEIVER">RECEIVER</option>
-          </select>
-        </label>
-      </p>
-      <button className="primary" onClick={confirm} disabled={busy}>
-        {busy ? 'Booking…' : 'Confirm'}
+      <button className="back-btn" onClick={onBack}>← Back</button>
+      <div className="section-head">
+        <h2>Book · {location.nickname}</h2>
+        <span className={`chip status status--ASSIGNED`} style={{ textTransform: 'capitalize' }}>{location.relationship}</span>
+      </div>
+
+      <div className="field">
+        <span>Direction</span>
+        <select
+          aria-label="direction"
+          value={direction}
+          onChange={(e) => setDirection(e.target.value as 'SEND' | 'RECEIVE')}
+        >
+          <option value="SEND">SEND — your shop → them</option>
+          <option value="RECEIVE">RECEIVE — them → your shop</option>
+        </select>
+      </div>
+
+      <div className="field">
+        <span>Who pays the driver</span>
+        <select
+          aria-label="payer"
+          value={payer}
+          onChange={(e) => setPayer(e.target.value as 'ME' | 'RECEIVER')}
+        >
+          <option value="ME">ME — I pay (wallet / cash / UPI)</option>
+          <option value="RECEIVER">RECEIVER — they pay the driver</option>
+        </select>
+      </div>
+
+      <button className="primary" style={{ width: '100%' }} onClick={confirm} disabled={busy}>
+        {busy ? 'Booking…' : 'Confirm booking'}
       </button>
     </div>
   );
