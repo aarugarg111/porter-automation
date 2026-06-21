@@ -27,8 +27,9 @@ class PorterNotificationListener : NotificationListenerService() {
         if (raw.isBlank()) return
 
         val baseUrl = Prefs.baseUrl(applicationContext)
-        // Network off the main thread; fire-and-forget (the backend stores raw text in capture_inbox).
-        thread { Poster.postCapture(baseUrl, raw) }
+        val token = Prefs.token(applicationContext)
+        // Network off the main thread; Poster retries so a blip doesn't drop the notification.
+        thread { Poster.postCapture(baseUrl, raw, token) }
     }
 
     private fun isPorter(pkg: String): Boolean =

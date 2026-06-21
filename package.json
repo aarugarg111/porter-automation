@@ -8,6 +8,8 @@
   },
   "scripts": {
     "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts",
+    "build:web": "npm --prefix web install && npm --prefix web run build",
     "wa:login": "tsx scripts/wa-login.ts",
     "test": "vitest run",
     "test:watch": "vitest"
