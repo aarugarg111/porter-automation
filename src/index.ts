@@ -20,6 +20,7 @@ import { CoordinationService } from './coordination/service.js';
 import { sweepLateDeliveries } from './tracking/monitor.js';
 import { sweepReceiverConfirmations } from './coordination/confirm_sweep.js';
 import { inboundRouter } from './api/inbound.js';
+import { twilioRouter } from './api/twilio.js';
 import { inboundMediaDir } from './messenger/whatsapp_client.js';
 import { handleInboundWhatsApp } from './capture/inbound.js';
 
@@ -64,6 +65,7 @@ for (const prefix of ['/', '/api']) {
   app.use(prefix, captureRouter(db, messenger));
   app.use(prefix, voiceRouter(svc));
   app.use(prefix, inboundRouter(db, messenger, alertPhone));
+  app.use(prefix, twilioRouter(db, alertPhone)); // inbound driver call → Hindi directions; "9" dials alertPhone
 }
 
 // Single-box deploy: serve the built dashboard if present (hash routing → no SPA fallback needed).
