@@ -1,4 +1,5 @@
 // src/index.ts
+import './config/load-env.js'; // load .env into process.env before anything reads it (must be first)
 import express from 'express';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
