@@ -9,5 +9,8 @@ dist/
 
 .superpowers/
 
+# inbound WhatsApp media (forwarded payment QRs etc.) — user data, never commit
+assets/inbound/
+
 web/node_modules/
 web/dist/

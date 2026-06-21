@@ -19,7 +19,11 @@ coordinate payment. It works **without Porter's API** (stalled) by reading the P
 - **Plan 4 (Android notification-capture app):** ✅ source scaffolded in `android/`, needs an Android
   Studio build.
 - **Plans 5–6 (hosting + dashboard APK):** 🟡 scaffolded (`Dockerfile`, `docs/DEPLOY.md`), not executed.
-- **Tests:** backend 55 + web 15, all green. Everything runs locally in **fake mode** (no phone, no
+- **Flow-gaps pass (2026-06-21, branch `feat/flow-gaps`):** ✅ fixed four code-level gaps found by
+  driving the flow end-to-end — the "₹0" receiver-payment ordering bug, the amount parser (commas/`₹`/
+  `INR`), Job 2 delay-detection now actually fires (`/alerts` + owner WhatsApp), and inbound WhatsApp
+  capture (receiver confirmations + driver UPI/QR forwards → `POST /whatsapp/inbound`). See `HANDOFF.md` §12.
+- **Tests:** backend 69 + web 15, all green. Everything runs locally in **fake mode** (no phone, no
   paid accounts) — see README.
 
 ## 3. Read the repo in THIS order

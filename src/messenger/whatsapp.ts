@@ -32,4 +32,9 @@ export class WhatsAppMessenger implements Messenger {
     const rupees = (amountPaise / 100).toFixed(amountPaise % 100 ? 2 : 0);
     await this.client.sendText(phone, `Driver ko ₹${rupees} de dena. Dhanyavaad.`);
   }
+
+  // Owner-facing alert (e.g. a delivery running late) — plain text to the owner's WhatsApp.
+  async notifyOwner(phone: string, text: string) {
+    await this.client.sendText(phone, text);
+  }
 }

@@ -64,16 +64,23 @@ LID=$(curl -s -X POST $B/locations -H 'content-type: application/json' \
 # 2. one-tap booking (SEND, receiver pays)
 curl -s -X POST $B/intent -H 'content-type: application/json' \
   -d "{\"direction\":\"SEND\",\"otherLocationId\":$LID,\"payer\":\"RECEIVER\"}"
-# 3. simulate the Porter app notifications
+# 3. simulate the Porter app notifications ("delivered" lands BEFORE the fare on purpose —
+#    the receiver is still told the correct ₹, never ₹0)
 for T in "Partner Ramesh (9876501234) assigned for order PRTR12345" \
          "Order PRTR12345 picked up" "Driver reached drop location for PRTR12345" \
-         "Order PRTR12345 delivered" "PRTR12345 fare Rs 150"; do
+         "Order PRTR12345 delivered" "PRTR12345 fare Rs 1,250"; do
   curl -s -X POST $B/capture -H 'content-type: application/json' -d "{\"text\":\"$T\"}"; echo
 done
 # 4. driver calls in for directions (Hindi landmark match)
 curl -s -X POST $B/voice/inbound -H 'content-type: application/json' \
   -d '{"driverPhone":"9876501234","spoken":"canara bank ke paas hoon"}'; echo
-# 5. payment ledger
+# 5. inbound WhatsApp reply side (Jobs 4 & 5): receiver confirms, driver forwards a UPI id
+curl -s -X POST $B/whatsapp/inbound -H 'content-type: application/json' \
+  -d '{"from":"9810012345","body":"haan aa gaya"}'; echo
+curl -s -X POST $B/whatsapp/inbound -H 'content-type: application/json' \
+  -d '{"from":"9876501234","body":"sir ramesh@okhdfc pe bhej do"}'; echo
+# 6. late/diverted alerts + payment ledger
+curl -s $B/alerts; echo
 curl -s $B/ledger; echo
 ```
 
@@ -105,7 +112,7 @@ Chrome/Edge instead of puppeteer's download. See `HANDOFF.md` §11 for the rest 
 **Backend (API engine):**
 ```bash
 npm install
-npm test               # vitest — 55 tests
+npm test               # vitest — 69 tests
 npx tsx src/index.ts   # boots the API on :3000 (PORTER_LIVE=1 for real adapters)
 ```
 Requires Node 24+ (uses the built-in `node:sqlite`).
