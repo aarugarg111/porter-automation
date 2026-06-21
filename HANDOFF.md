@@ -104,6 +104,8 @@ Drove the whole flow end-to-end in fake mode and closed four code-level gaps. Al
 - ✅ **Job 4 no-reply auto-call (DONE).** `sweepReceiverConfirmations` (`src/coordination/confirm_sweep.ts`) places ONE budget-gated AI call to the receiver when no WhatsApp confirmation lands within `CONFIRM_GRACE_MINUTES` (default 15) of `delivered_at`. Idempotent via `receiver_call_at`; over budget → nudges the owner to confirm manually. **Opt-in** via `AUTO_CONFIRM_CALL=1` (off by default — placing calls costs money). Schema: + `deliveries.delivered_at`, `deliveries.receiver_call_at`. Tests: `tests/confirm_sweep.test.ts`.
 - ✅ **Dashboard surfaces the new data (DONE, PR #2).** Late-alert banner, `receiver_confirmed_at` badge, inbound UPI/QR feed all shown; colour-coded, mobile-first; hash routing.
 
+- ✅ **Job 1 inbound driver call — AI answers in Hindi (DONE, the headline POC).** `POST /voice/twilio-inbound` (`src/api/twilio.ts` + `src/telephony/twiml.ts`) auto-answers and speaks the fixed shop directions via Twilio `<Say Polly.Aditi hi-IN>`; press 1 repeat, 9 dials the owner. **Deterministic playback (no live STT) = 100% accuracy** for a fixed shop. No FloBiz infra; Twilio trial = free, ~₹500/mo live. Setup: `docs/VOICE-CALL-SETUP.md`. Tests: `tests/twilio.test.ts`.
+
 **Still open (genuine gaps, need ops/product decisions):**
 - **Budget is only recorded if `/voice/status` is called** (Bolna/Exotel webhook). Verify the webhook fires on call end, else the ₹2k cap never advances.
 - The real `client.on('message')` handler is best-effort (untested, like the other live adapters) — verify against whatsapp-web.js once the phone is wired.
