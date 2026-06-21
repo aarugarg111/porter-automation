@@ -10,6 +10,7 @@ const intentSchema = z.object({
   otherLocationId: z.number(),
   payer: z.enum(['ME','RECEIVER']).optional(),
   vehicle: z.string().optional(),
+  expectedMinutes: z.number().positive().optional(),
 });
 const locationSchema = z.object({
   nickname: z.string().min(1),
@@ -34,10 +35,17 @@ export function readRouter(db: DatabaseSync): Router {
     const rows = db.prepare("select * from deliveries where status!='DELIVERED' order by created_at desc").all();
     res.json(rows.map((d:any)=> ({ ...d, late: isLate(d, Date.now()) })));
   });
+  // Job 2: open deliveries currently flagged late/diverted (dashboard alert badge).
+  r.get('/alerts', (_req,res) => {
+    const rows = db.prepare("select * from deliveries where status not in ('DELIVERED','CANCELLED') order by created_at desc").all();
+    const late = rows.filter((d:any)=> isLate(d, Date.now()));
+    res.json({ count: late.length, late });
+  });
   r.get('/deliveries/:id', (req,res) => {
     const d = db.prepare('select * from deliveries where id=?').get(req.params.id);
     const events = db.prepare('select * from events where delivery_id=? order by created_at').all(req.params.id);
-    res.json({ ...(d as any), events });
+    const inbound = db.prepare('select * from inbound_messages where delivery_id=? order by created_at').all(req.params.id);
+    res.json({ ...(d as any), events, inbound });
   });
   r.get('/locations', (_req,res) => {
     res.json(listLocations(db));

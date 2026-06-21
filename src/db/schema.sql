@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS deliveries (
   porter_order_id TEXT, driver_name TEXT, driver_phone TEXT, amount INTEGER,
   payer TEXT NOT NULL DEFAULT 'ME', payment_status TEXT NOT NULL DEFAULT 'pending',
   payment_method TEXT, payment_qr_url TEXT, payment_upi_id TEXT, drop_address_text TEXT,
-  expected_minutes INTEGER, started_at TEXT, reached_at TEXT, created_at TEXT NOT NULL);
+  expected_minutes INTEGER, started_at TEXT, reached_at TEXT, created_at TEXT NOT NULL,
+  late_alerted_at TEXT, receiver_confirmed_at TEXT);
 CREATE TABLE IF NOT EXISTS events (
   id INTEGER PRIMARY KEY, delivery_id INTEGER NOT NULL, status TEXT NOT NULL,
   source TEXT NOT NULL, raw_text TEXT, created_at TEXT NOT NULL,
@@ -22,4 +23,8 @@ CREATE TABLE IF NOT EXISTS landmarks (
 CREATE TABLE IF NOT EXISTS ai_call_spend (
   id INTEGER PRIMARY KEY, delivery_id INTEGER, direction TEXT NOT NULL,
   seconds INTEGER NOT NULL, paise INTEGER NOT NULL, escalated INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS inbound_messages (
+  id INTEGER PRIMARY KEY, delivery_id INTEGER, from_phone TEXT NOT NULL,
+  body TEXT, media_kind TEXT, media_ref TEXT, kind TEXT NOT NULL DEFAULT 'other',
   created_at TEXT NOT NULL);

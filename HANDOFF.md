@@ -1,7 +1,10 @@
 # HANDOFF — Porter Coordination Cockpit
 
 _Single-file context to resume work in a fresh session without re-reading history._
-_Last updated: 2026-06-20._
+_Last updated: 2026-06-21._
+
+> **2026-06-21 flow-gaps pass (branch `feat/flow-gaps`):** four code-level gaps found while
+> driving the flow end-to-end are now fixed + tested (backend 69, web 15). See §12.
 
 ## 1. What this is (1 paragraph)
 A system that automates the **post-booking coordination** for a shop (Aryan Enterprises, Badarpur,
@@ -28,7 +31,7 @@ a dedicated phone. A `PorterClient` seam lets the real API drop in later with no
 |------|------|--------|
 | 1 | Backend engine: delivery state machine, notification capture (`POST /capture`), 5-job hooks behind a `Messenger` interface (mock), tracking/diversion, payment ledger, REST API, dev simulator | ✅ Done — 24 tests |
 | 2 | React dashboard (`web/`): split main (quick-book + active list), 1-tap booking, delivery detail timeline, payment ledger | ✅ Done — 15 tests, builds clean |
-| 3 | WhatsApp bot (whatsapp-web.js) + AI calls (answer driver, call receiver, budget tracker) — real adapters behind the seams | ✅ Code-complete — 31 new tests (55 total), tested against fakes. Inbound driver call (`/voice/inbound`) + outbound receiver call (`/voice/confirm-receiver`) both wired. Live wiring (phone QR + Bolna account) pending — see §11 |
+| 3 | WhatsApp bot (whatsapp-web.js) + AI calls (answer driver, call receiver, budget tracker) — real adapters behind the seams | ✅ Code-complete — 31 new tests (55 total then; **69 after the 2026-06-21 flow-gaps pass, §12**), tested against fakes. Inbound driver call (`/voice/inbound`) + outbound receiver call (`/voice/confirm-receiver`) both wired. Live wiring (phone QR + Bolna account) pending — see §11 |
 | 4 | Android notification-listener app on the Porter phone → POSTs Porter notifications to `/capture` | ✅ Source scaffolded (`android/`, Kotlin) — posts `{text}` to `/capture`. NOT YET BUILT: needs Android Studio (no SDK on dev box). See `android/README.md` |
 | 5 | Deploy backend (`Dockerfile`) + dashboard static build | 🟡 Scaffolded (`Dockerfile`, `.dockerignore`, `docs/DEPLOY.md`) — not executed; needs host choice + budget. |
 | 6 | Wrap dashboard as Android APK (PWA or Capacitor) | ⬜ NOT STARTED — options written up in `docs/DEPLOY.md` |
@@ -61,9 +64,10 @@ a dedicated phone. A `PorterClient` seam lets the real API drop in later with no
 - Sarthak: accept GitHub invite. · Approve hosting (~₹500–1k/mo). · Set Porter wallet/card as default payment + fund it. · During dummy runs, let the parser see real Porter notifications. · Hand over Porter API key whenever it's enabled.
 
 ## 9. Notification parser note
-`src/capture/parsers.ts` regexes are **PROVISIONAL** (test table in `tests/parsers.test.ts`). Plan: during real/dummy Porter runs, `capture_inbox` stores raw notifications → tune the parsers from actual messages (no need for the user to pre-send samples). The amount regex currently drops paise/comma-grouping — fix when tuning.
+`src/capture/parsers.ts` regexes are **PROVISIONAL** (test table in `tests/parsers.test.ts`). Plan: during real/dummy Porter runs, `capture_inbox` stores raw notifications → tune the parsers from actual messages (no need for the user to pre-send samples). The order-id pattern (`PRTR…`) and driver-phone shape are the most likely to need tuning against real Porter notifications.
 
-**Ordering note (seen in local smoke test):** the RECEIVER pre-notify fires at `DELIVERED` using `deliveries.amount`. If the fare/receipt notification arrives *after* the delivered one, the WhatsApp says "₹0" (amount not yet known). When tuning, decide the real Porter notification order; if fare lands late, either delay the pre-notify until the receipt event or re-send the amount on RECEIPT.
+- **Amount parsing — FIXED (2026-06-21):** `parseFarePaise` now handles `Rs`/`Rs.`/`INR`/`₹`, comma grouping (`1,250`), and paise (`150.50`). (Was: `/Rs\.?\s*(\d+)/` → "Rs 1,250" became ₹1.)
+- **Ordering — FIXED (2026-06-21):** the RECEIVER pre-notify is now order-independent. `maybeSettleReceiverPayment` only fires once the delivery is `DELIVERED` **and** the fare is known, so the receiver is never told "₹0" — whether Porter's "delivered" or "fare" notification lands first. Idempotent. (See §12.)
 
 ## 10. HOW TO RESUME (next step)
 All code (Plans 1–4) is on `main` + green/scaffolded. The remaining work is **ops/tooling**, not code:
@@ -81,3 +85,23 @@ All Plan 3 code runs against **fakes** by default. To go live (`PORTER_LIVE=1`):
 3. **Assets:** drop `assets/shopfront.jpg` (shopfront photo) and `assets/directions-hi.ogg` (Hindi voice note) so the driver WhatsApp includes them (absent → text-only, no error).
 4. **Budget:** tune `AI_CALL_PAISE_PER_MIN` to the real Bolna+Exotel rate; cap stays `AI_BUDGET_PAISE_PER_MONTH=200000` (₹2,000).
 5. **Landmarks:** `src/landmarks/seed.ts` seeds 5 curated landmarks; add more as drivers name new ones (edit seed or insert into the `landmarks` table).
+
+## 12. Flow-gaps pass (2026-06-21, branch `feat/flow-gaps`)
+Drove the whole flow end-to-end in fake mode and closed four code-level gaps. All fixed + tested; no new paid accounts needed.
+
+| Gap | Fix | Files | Tests |
+|-----|-----|-------|-------|
+| **A — receiver told "₹0"** when the fare notification arrives after "delivered" | `maybeSettleReceiverPayment` — pre-notify the receiver only once DELIVERED **and** fare known; idempotent + order-independent | `src/deliveries/service.ts` | `tests/service.test.ts` (new ordering test) |
+| **B — amount parser dropped commas/paise**, no `₹`/`INR` | `parseFarePaise` handles `Rs`/`Rs.`/`INR`/`₹`, `1,250`, `150.50` | `src/capture/parsers.ts` | `tests/parsers.test.ts` |
+| **C — Job 2 (catch delay) was dead** — `expected_minutes` never set, no proactive alert | set `expected_minutes` on intent (`DEFAULT_ETA_MINUTES`/`expectedMinutes`); `sweepLateDeliveries` WhatsApps the owner **once** when a delivery first goes late; `GET /alerts` for the dashboard | `src/deliveries/service.ts`, `src/tracking/monitor.ts`, `src/api/read.ts`, `src/index.ts` | `tests/monitor.test.ts` |
+| **D — no inbound WhatsApp at all** — receiver replies + driver UPI/QR forwards were never read | `onMessage` seam on `WhatsAppClient` (live: `client.on('message')`, saves media to `assets/inbound` served at `/inbound-media`); `handleInboundWhatsApp` records receiver confirmation (`receiver_confirmed_at`) and UPI id/QR (`payment_upi_id`/`payment_qr_url`) + pings owner to pay. **Never auto-settles money.** `POST /whatsapp/inbound` | `src/capture/inbound.ts`, `src/api/inbound.ts`, `src/messenger/whatsapp_client.ts`, `src/index.ts` | `tests/inbound.test.ts` |
+
+**Schema:** added `deliveries.late_alerted_at`, `deliveries.receiver_confirmed_at`, table `inbound_messages`. `getDb()` now runs an idempotent `migrate()` (ALTERs missing columns) — no formal migration system yet, but existing dev DBs upgrade in place.
+
+**New env (see `.env.example`):** `DEFAULT_ETA_MINUTES`, `OWNER_ALERT_PHONE`, `LATE_SWEEP_MS`.
+
+**Still open after this pass (genuine gaps, need product/ops decisions):**
+- **Job 4 AI call is not auto-fired.** `confirmReceiverByCall` exists + `POST /voice/confirm-receiver`, but nothing triggers it automatically on DELIVERED (auto-calling every drop would burn the ₹2k/mo budget). Intended as: WhatsApp first → AI call only if no inbound confirmation within N minutes. That "no-reply timer" is not built yet (now that inbound confirmation IS captured, this is wireable).
+- **Budget is only recorded if `/voice/status` is called** (Bolna/Exotel webhook). Verify the webhook fires on call end, else the ₹2k cap never advances.
+- **`receiver_confirmed_at` / inbound rows are not yet surfaced in the React dashboard** (exposed via `GET /deliveries/:id` → `inbound[]`; UI badge is a small follow-up).
+- The real `client.on('message')` handler is best-effort (untested, like the other live adapters) — verify against whatsapp-web.js once the phone is wired.

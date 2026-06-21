@@ -47,6 +47,27 @@ test('payer=ME: delivered confirms receiver but does NOT notify payment or settl
   expect(kinds).not.toContain('payment');
 });
 
+test('RECEIVER payment is correct even when the fare notification arrives AFTER delivered (no "₹0")', async () => {
+  const db = getDb(':memory:'); seedHome(db);
+  const recv = createLocation(db, { nickname:'Late', relationship:'customer', phone:'222', default_payer:'RECEIVER' }) as number;
+  const id = createIntent(db, { direction:'SEND', otherLocationId: recv, payer:'RECEIVER' });
+  const m = new MockMessenger();
+  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'PRTR9', driverName:'L', driverPhone:'111' });
+  // DELIVERED arrives BEFORE the fare → must NOT pre-notify yet (would be ₹0) and must NOT settle.
+  await applyParsed(db, m, { deliveryId:id, type:'DELIVERED', orderId:'PRTR9' });
+  let d:any = db.prepare('select * from deliveries where id=?').get(id);
+  expect(d.payment_status).toBe('pending');
+  expect(m.sent.map((s:{kind:string})=>s.kind)).not.toContain('payment');
+  // fare lands late → now the receiver is told the correct amount, exactly once, and it settles.
+  await applyParsed(db, m, { deliveryId:id, type:'RECEIPT', orderId:'PRTR9', amountPaise:15000 });
+  d = db.prepare('select * from deliveries where id=?').get(id);
+  expect(d.amount).toBe(15000);
+  expect(d.payment_status).toBe('settled');
+  const payments = m.sent.filter((s:{kind:string;extra?:any})=>s.kind==='payment');
+  expect(payments.length).toBe(1);
+  expect(payments[0].extra).toBe(15000);
+});
+
 test('PICKED_UP stamps started_at; REACHED_AREA stamps reached_at', async () => {
   const db = getDb(':memory:'); seedHome(db);
   const recv = createLocation(db, { nickname:'Trip', relationship:'customer' }) as number;
