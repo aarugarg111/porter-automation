@@ -115,6 +115,18 @@ test('CANCELLED notification cancels the delivery, logs an event, and sends noth
   expect((db.prepare('select status from deliveries where id=?').get(id) as any).status).toBe('CANCELLED');
 });
 
+test('STARTED ("order has started") advances to in-transit and stamps started_at', async () => {
+  const db = getDb(':memory:'); seedHome(db);
+  const recv = createLocation(db, { nickname:'Live', relationship:'customer' }) as number;
+  const id = createIntent(db, { direction:'SEND', otherLocationId: recv });
+  const m = new MockMessenger();
+  await applyParsed(db, m, { deliveryId:id, type:'ASSIGNED', orderId:'CRN1522854534', driverName:'Rahul' });
+  await applyParsed(db, m, { deliveryId:id, type:'STARTED', orderId:'CRN1522854534' });
+  const d:any = db.prepare('select * from deliveries where id=?').get(id);
+  expect(d.status).toBe('PICKED_UP');
+  expect(d.started_at).not.toBeNull();
+});
+
 test('PICKED_UP stamps started_at; REACHED_AREA stamps reached_at', async () => {
   const db = getDb(':memory:'); seedHome(db);
   const recv = createLocation(db, { nickname:'Trip', relationship:'customer' }) as number;
