@@ -19,7 +19,8 @@ export function createIntent(db: DatabaseSync,
 }
 const TYPE_TO_STATUS: Record<string, Status|undefined> = {
   ASSIGNED:'ASSIGNED', REACHED_PICKUP:'REACHED_PICKUP', PICKED_UP:'PICKED_UP',
-  REACHED_AREA:'REACHED_AREA', DELIVERED:'DELIVERED' };
+  // "Order has started / is now live" = the trip is underway → in-transit (stamps started_at).
+  STARTED:'PICKED_UP', REACHED_AREA:'REACHED_AREA', DELIVERED:'DELIVERED' };
 
 // Pre-notify the receiver of the amount to hand the driver, then settle — but ONLY once
 // the delivery is DELIVERED *and* the fare is known. Idempotent + order-independent, so it

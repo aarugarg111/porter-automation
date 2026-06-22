@@ -11,6 +11,17 @@ const cases: [string, any][] = [
   // Cancelled (title + body forms).
   ['Your order CRN1657868951 has been cancelled.', { type:'CANCELLED', orderId:'CRN1657868951' }],
   ['CRN1657868951 got cancelled. Tap for more details.', { type:'CANCELLED', orderId:'CRN1657868951' }],
+  // Single-word and multi-word ALL-CAPS driver names both work.
+  ['Rahul has been assigned for your order CRN1522854534',
+    { type:'ASSIGNED', orderId:'CRN1522854534', driverName:'Rahul' }],
+  ['ABHIMANYU KUMAR SINHA has been assigned for your order CRN1713000111',
+    { type:'ASSIGNED', orderId:'CRN1713000111', driverName:'ABHIMANYU KUMAR SINHA' }],
+  // Trip started / now live → in-transit (title + body forms).
+  ['Your order CRN1522854534 has started.', { type:'STARTED', orderId:'CRN1522854534' }],
+  ['CRN1522854534 is now live. Tap for live updates.', { type:'STARTED', orderId:'CRN1522854534' }],
+  // Driver fell through, Porter reassigning (no order id in Porter's text).
+  ['Searching for a new driver — Finding a new driver to serve your order. We will update the driver and vehicle details for your order in next few minutes',
+    { type:'SEARCHING' }],
 
   // ── Legacy/alt formats still supported ──
   ['Partner Ramesh (9876543210) assigned to your order PRTR12345',
