@@ -1,6 +1,8 @@
 import type { DatabaseSync } from 'node:sqlite';
 import { listLandmarks, type LandmarkRow } from './repo.js';
-const norm = (s:string) => s.toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\s+/g,' ').trim();
+// Keep latin a-z0-9 AND the Devanagari block (U+0900–U+097F): Hindi speech-to-text returns Devanagari
+// (मैं बदरपुर बॉर्डर…), so stripping it would leave nothing to match. Aliases carry both scripts.
+const norm = (s:string) => s.toLowerCase().replace(/[^a-z0-9ऀ-ॿ\s]/g,' ').replace(/\s+/g,' ').trim();
 export class LandmarkKB {
   private rows: LandmarkRow[];
   constructor(db: DatabaseSync) { this.rows = listLandmarks(db); }

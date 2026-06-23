@@ -22,6 +22,9 @@ import { sweepLateDeliveries } from './tracking/monitor.js';
 import { sweepReceiverConfirmations } from './coordination/confirm_sweep.js';
 import { inboundRouter } from './api/inbound.js';
 import { twilioRouter } from './api/twilio.js';
+import { voiceStreamRouter } from './api/voice_stream.js';
+import { attachMediaStream } from './telephony/media_stream.js';
+import { makeVoiceEngines } from './telephony/voice/factory.js';
 import { inboundMediaDir } from './messenger/whatsapp_client.js';
 import { handleInboundWhatsApp } from './capture/inbound.js';
 
@@ -60,13 +63,16 @@ if (captureToken) {
 
 app.use('/inbound-media', express.static(inboundMediaDir)); // forwarded payment QRs for the dashboard
 
+// Inbound driver call: VOICE_AGENT=1 → real-time streaming agent (<Connect><Stream>); else the IVR.
+const voiceAgent = process.env.VOICE_AGENT === '1';
+
 // API routers mounted at root (Android `/capture`, curl) AND under `/api` (the same-origin dashboard build).
 for (const prefix of ['/', '/api']) {
   app.use(prefix, readRouter(db));
   app.use(prefix, captureRouter(db, messenger));
   app.use(prefix, voiceRouter(svc));
   app.use(prefix, inboundRouter(db, messenger, alertPhone));
-  app.use(prefix, twilioRouter(db, alertPhone, messenger)); // inbound driver call → WhatsApp + Hindi directions; "9" dials alertPhone
+  app.use(prefix, voiceAgent ? voiceStreamRouter() : twilioRouter(db, alertPhone, messenger));
 }
 
 // Single-box deploy: serve the built dashboard if present (hash routing → no SPA fallback needed).
@@ -74,7 +80,14 @@ const webDist = join(dirname(fileURLToPath(import.meta.url)), '..', 'web', 'dist
 if (existsSync(webDist)) app.use(express.static(webDist));
 
 const port = Number(process.env.PORT || 3000);
-app.listen(port, () => console.log(`cockpit on :${port} (live=${live}${existsSync(webDist) ? ', serving dashboard' : ''})`));
+const server = app.listen(port, () => console.log(`cockpit on :${port} (live=${live}${voiceAgent ? ', voice-agent' : ''}${existsSync(webDist) ? ', serving dashboard' : ''})`));
+
+// Real-time voice agent: attach the Twilio Media Streams WebSocket on the same port.
+if (voiceAgent) {
+  const { stt, tts, mode } = makeVoiceEngines();
+  attachMediaStream(server, { db, stt, tts, kb: new LandmarkKB(db), ownerPhone: alertPhone });
+  console.log(`[voice] media-stream agent attached at /media-stream (${mode})`);
+}
 
 // Job 2: periodically alert the owner about deliveries running late (once each). In dev/fake
 // mode this prints via the logging WhatsApp adapter. OWNER_ALERT_PHONE = the human's number.
