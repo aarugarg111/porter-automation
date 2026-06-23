@@ -25,6 +25,7 @@ import { twilioRouter } from './api/twilio.js';
 import { voiceStreamRouter } from './api/voice_stream.js';
 import { attachMediaStream } from './telephony/media_stream.js';
 import { makeVoiceEngines, createBrain } from './telephony/voice/factory.js';
+import { loadShopBriefing } from './maps/google.js';
 import { inboundMediaDir } from './messenger/whatsapp_client.js';
 import { handleInboundWhatsApp } from './capture/inbound.js';
 
@@ -87,6 +88,12 @@ if (voiceAgent) {
   const { stt, tts, mode } = makeVoiceEngines();
   const kb = new LandmarkKB(db);
   const brainMode = process.env.LLM_API_KEY ? `llm:${process.env.LLM_MODEL || 'gemini-flash-latest'}` : 'rule-based';
+  // Bake the shop's full map picture (its Google record + every nearby landmark) into every call's prompt.
+  if (process.env.GOOGLE_MAPS_API_KEY) {
+    loadShopBriefing(process.env.GOOGLE_MAPS_API_KEY)
+      .then((n) => console.log(`[maps] shop briefing baked in (${n} nearby landmarks)`))
+      .catch((e) => console.error('[maps] briefing failed', e));
+  }
   attachMediaStream(server, { db, stt, tts, kb, ownerPhone: alertPhone, makeBrain: () => createBrain(kb) });
   console.log(`[voice] media-stream agent attached at /media-stream (voice=${mode}, brain=${brainMode})`);
 }

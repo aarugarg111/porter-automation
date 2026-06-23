@@ -8,6 +8,7 @@ import { ARRIVED, LOST } from './brain.js';
 import type { ChatClient, ChatMessage } from './llm.js';
 import type { LandmarkKB } from '../../landmarks/kb.js';
 import type { MapsProvider } from '../../maps/google.js';
+import { getShopBriefing } from '../../maps/google.js';
 
 const GREETING = 'हाँ जी नमस्ते, आर्यन एंटरप्राइज़ेज़ से। बोलिए, अभी कहाँ हो?';
 const MAX_HISTORY = 14; // system + ~6 turns
@@ -29,6 +30,7 @@ export function systemPrompt(routes: string): string {
     'ROUTES YOU KNOW (use ONLY these facts — never invent roads or turns):',
     routes,
     '',
+    ...(getShopBriefing() ? [getShopBriefing(), ''] : []),
     'HOW TO TALK (this is a live phone call — talk like a person, not a recording):',
     '- Reply ONLY in pure Devanagari (Hindi) script. Write EVERY word in Devanagari, INCLUDING names and',
     '  places — transliterate them: आर्यन एंटरप्राइज़ेज़, मथुरा रोड, मेट्रो पिलर पच्चीस, कैनरा बैंक, बॉश,',
