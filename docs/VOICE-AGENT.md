@@ -11,9 +11,11 @@ Twilio call ──µ-law 8k──▶ Media Streams WS ──▶ STT ──transc
 ```
 - **`src/api/voice_stream.ts`** — inbound webhook returns `<Connect><Stream wss://<host>/media-stream>` (passes From + CallSid as `<Parameter>`s).
 - **`src/telephony/media_stream.ts`** — the WebSocket call session: greets, streams audio to STT, runs the brain on each finished utterance, streams TTS back, and on **barge-in** (caller starts talking) sends Twilio a `clear` to stop the bot mid-sentence.
-- **`src/telephony/voice/brain.ts`** — generous KB guidance: a known landmark → its leg; arrived → hang up; lost/"connect me" → owner; **anything else → universal "come to Canara Bank / Pillar 25" directions, not an escalation.**
+- **Brain (pluggable, per call):**
+  - `voice/llm_brain.ts` — **LLM conversation** (the Cashflohero-style path): an OpenAI-compatible model (`voice/llm.ts`) holds a real Hindi back-and-forth, grounded in the shop facts + `kb.knowledge()` routes, short replies, ends a turn with `[ARRIVED]`/`[CONNECT]` tags → hangup/transfer. Enabled by `LLM_API_KEY`.
+  - `voice/brain.ts` (`GuidanceBrain`) — rule-based KB fallback when no LLM key: known landmark → its leg; arrived → hang up; anything else → universal "come to Canara Bank / Pillar 25", never a first-miss escalation.
 - **`src/telephony/audio.ts`** — G.711 µ-law codec + resample/frame helpers.
-- **`src/telephony/voice/{types,mock,factory}.ts`** — pluggable STT/TTS; mocks run the whole pipeline with no API key (used by `tests/media_stream.test.ts`).
+- **`src/telephony/voice/{types,mock,factory}.ts`** — pluggable STT/TTS + brain (`createBrain`); mocks run the whole pipeline with no API key (`tests/media_stream.test.ts`, `tests/llm_brain.test.ts`).
 
 ## Enable
 Set `VOICE_AGENT=1` → the inbound webhook serves `<Connect><Stream>` instead of the IVR (default off, so

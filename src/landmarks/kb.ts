@@ -20,4 +20,9 @@ export class LandmarkKB {
     }
     return best ? { directions: best.directions, confidence: best.confidence } : null;
   }
+
+  // Route facts as grounding for the LLM brain — "if he's near X, the leg is …".
+  knowledge(): string {
+    return this.rows.map((r) => `- Agar woh "${r.keyword}" ke paas hai → ${r.directions}`).join('\n');
+  }
 }

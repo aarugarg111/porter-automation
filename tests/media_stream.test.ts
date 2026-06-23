@@ -6,16 +6,20 @@ import { seedHome } from '../src/db/seed.js';
 import { seedLandmarks } from '../src/landmarks/seed.js';
 import { LandmarkKB } from '../src/landmarks/kb.js';
 import { MockSttEngine, MockTtsEngine } from '../src/telephony/voice/mock.js';
+import { GuidanceBrain } from '../src/telephony/voice/brain.js';
+import { LlmBrain } from '../src/telephony/voice/llm_brain.js';
+import { MockChat } from '../src/telephony/voice/llm.js';
 import { attachMediaStream } from '../src/telephony/media_stream.js';
 
 beforeAll(() => { process.env.VOICE_ECHO_GRACE_MS = '0'; }); // no echo-grace delay in tests
 
-function startAgent() {
+function startAgent(makeBrain?: (kb: LandmarkKB) => any) {
   const db = getDb(':memory:'); seedHome(db); seedLandmarks(db);
   const stt = new MockSttEngine();
   const tts = new MockTtsEngine();
+  const kb = new LandmarkKB(db);
   const server = http.createServer();
-  attachMediaStream(server, { db, stt, tts, kb: new LandmarkKB(db), ownerPhone: '9910774205' });
+  attachMediaStream(server, { db, stt, tts, kb, ownerPhone: '9910774205', makeBrain: () => (makeBrain ? makeBrain(kb) : new GuidanceBrain(kb)) });
   return new Promise<{ db: any; stt: MockSttEngine; tts: MockTtsEngine; server: http.Server; port: number }>(
     (resolve) => server.listen(0, () => resolve({ db, stt, tts, server, port: (server.address() as any).port })),
   );
@@ -105,5 +109,28 @@ test('"dukaan dikh gaya" → arrival line then ends the call', async () => {
   stt.last!.say('dukaan dikh gaya');
   await waitFor(() => tts.spoken.some((t) => /bahut badhiya/i.test(t)));
   await waitFor(() => closed); // arrival → hangup closes the stream
+  server.close();
+});
+
+test('LLM brain: model reply is spoken through the stream; [ARRIVED] ends the call', async () => {
+  let calls = 0;
+  const makeBrain = (kb: LandmarkKB) => new LlmBrain(
+    new MockChat(() => (++calls === 1 ? 'Achha, Mathura Road pe aa jao.' : 'Aa gaye! Shukriya. [ARRIVED]')),
+    kb,
+  );
+  const { stt, tts, server, port } = await startAgent(makeBrain);
+  const c = connect(port);
+  let closed = false;
+  c.ws.on('close', () => { closed = true; });
+  await c.open();
+  c.ws.send(JSON.stringify({ event: 'start', streamSid: 'MZ5', start: { callSid: 'CA5', customParameters: {} } }));
+  await c.doneSpeaking();                       // fixed greeting (no LLM call)
+  tts.spoken.length = 0;
+  stt.last!.say('main kahin door hoon');
+  await waitFor(() => tts.spoken.some((t) => /Mathura Road/i.test(t)));  // LLM reply spoken
+  await c.doneSpeaking();
+  stt.last!.say('haan pohonch gaya');
+  await waitFor(() => tts.spoken.some((t) => /shukriya/i.test(t)));      // tag stripped from spoken text
+  await waitFor(() => closed);                                          // [ARRIVED] → hangup
   server.close();
 });
