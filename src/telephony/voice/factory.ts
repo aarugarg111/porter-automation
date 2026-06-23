@@ -20,7 +20,9 @@ export function createBrain(kb: LandmarkKB): Brain {
   if (key) {
     const base = process.env.LLM_BASE_URL || 'https://generativelanguage.googleapis.com/v1beta/openai';
     const model = process.env.LLM_MODEL || 'gemini-flash-latest';
-    return new LlmBrain(new OpenAiCompatChat(base, key, model), kb);
+    // Reasoning models (e.g. sarvam-30b) spend tokens "thinking" before the answer → give enough budget.
+    const maxTokens = Number(process.env.LLM_MAX_TOKENS) || 400;
+    return new LlmBrain(new OpenAiCompatChat(base, key, model, { maxTokens }), kb);
   }
   return new GuidanceBrain(kb);
 }
