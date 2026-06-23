@@ -24,7 +24,7 @@ import { inboundRouter } from './api/inbound.js';
 import { twilioRouter } from './api/twilio.js';
 import { voiceStreamRouter } from './api/voice_stream.js';
 import { attachMediaStream } from './telephony/media_stream.js';
-import { makeVoiceEngines } from './telephony/voice/factory.js';
+import { makeVoiceEngines, createBrain } from './telephony/voice/factory.js';
 import { inboundMediaDir } from './messenger/whatsapp_client.js';
 import { handleInboundWhatsApp } from './capture/inbound.js';
 
@@ -85,8 +85,10 @@ const server = app.listen(port, () => console.log(`cockpit on :${port} (live=${l
 // Real-time voice agent: attach the Twilio Media Streams WebSocket on the same port.
 if (voiceAgent) {
   const { stt, tts, mode } = makeVoiceEngines();
-  attachMediaStream(server, { db, stt, tts, kb: new LandmarkKB(db), ownerPhone: alertPhone });
-  console.log(`[voice] media-stream agent attached at /media-stream (${mode})`);
+  const kb = new LandmarkKB(db);
+  const brainMode = process.env.LLM_API_KEY ? `llm:${process.env.LLM_MODEL || 'gemini-flash-latest'}` : 'rule-based';
+  attachMediaStream(server, { db, stt, tts, kb, ownerPhone: alertPhone, makeBrain: () => createBrain(kb) });
+  console.log(`[voice] media-stream agent attached at /media-stream (voice=${mode}, brain=${brainMode})`);
 }
 
 // Job 2: periodically alert the owner about deliveries running late (once each). In dev/fake

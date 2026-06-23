@@ -8,7 +8,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import type { DatabaseSync } from 'node:sqlite';
 import type { LandmarkKB } from '../landmarks/kb.js';
 import type { SttEngine, SttSession, TtsEngine } from './voice/types.js';
-import { GuidanceBrain, type BrainAction } from './voice/brain.js';
+import type { Brain, BrainAction } from './voice/brain.js';
 import { chunkMuLaw } from './audio.js';
 import { logCallTurn } from './call_log.js';
 import { e164 } from './twiml.js';
@@ -19,6 +19,7 @@ export interface MediaStreamDeps {
   tts: TtsEngine;
   kb: LandmarkKB;
   ownerPhone: string;
+  makeBrain: () => Brain; // fresh per-call brain (LLM conversation or rule-based fallback)
   // Prod wires these to the Twilio REST API; optional so the pipeline runs in tests without it.
   redirectCall?: (callSid: string, twiml: string) => Promise<void>;
   hangupCall?: (callSid: string) => Promise<void>;
@@ -31,9 +32,10 @@ export class CallSession {
   private callSid = '';
   private fromPhone = '';
   private stt?: SttSession;
-  private brain: GuidanceBrain;
+  private brain: Brain;
   private speakGen = 0;          // bumped on every new utterance + on barge-in → stale frames are dropped
   private speaking = false;
+  private thinking = false;      // awaiting the brain (LLM) → ignore new transcripts until it replies
   private mutedUntilMs = 0;      // ignore transcripts briefly after we finish talking (echo tail)
   private speakTimer?: ReturnType<typeof setTimeout>;
   private pendingAfterSpeech?: BrainAction; // 'transfer'/'hangup' to run once the line finishes playing
@@ -41,7 +43,7 @@ export class CallSession {
   private log(...a: unknown[]): void { console.log(`[voice ${this.callSid || this.streamSid}]`, ...a); }
 
   constructor(private ws: WebSocket, private deps: MediaStreamDeps) {
-    this.brain = new GuidanceBrain(deps.kb);
+    this.brain = deps.makeBrain();
   }
 
   handle(raw: string): void {
@@ -64,9 +66,9 @@ export class CallSession {
     this.log('call started, from=', this.fromPhone || '(masked)');
     this.stt = this.deps.stt.open({
       onSpeechStarted: () => this.onBargeIn(),
-      onFinal: (text) => this.onUtterance(text),
+      onFinal: (text) => { void this.onUtterance(text); },
     });
-    void this.speak(this.brain.greeting());
+    void this.brain.greeting().then((g) => this.speak(g));
   }
 
   private onMedia(msg: any): void {
@@ -87,15 +89,19 @@ export class CallSession {
     this.sendJson({ event: 'clear', streamSid: this.streamSid });
   }
 
-  private onUtterance(text: string): void {
-    // Ignore anything heard WHILE we're talking (or just after) — that's our own echo, not the caller.
-    if (this.speaking || Date.now() < this.mutedUntilMs) { this.log('heard (ignored, self-echo):', JSON.stringify(text)); return; }
+  private async onUtterance(text: string): Promise<void> {
+    // Ignore anything heard while we're talking/thinking (or just after) — that's our own echo, not the caller.
+    if (this.speaking || this.thinking || Date.now() < this.mutedUntilMs) { this.log('heard (ignored):', JSON.stringify(text)); return; }
     this.log('heard:', JSON.stringify(text));
     logCallTurn(this.deps.db, { callSid: this.callSid, fromPhone: this.fromPhone, spoken: text });
-    const reply = this.brain.onTranscript(text);
+    this.thinking = true;
+    let reply;
+    try { reply = await this.brain.onTranscript(text); }
+    catch (e) { this.thinking = false; console.error('[media] brain', e); return; }
     this.log('→', reply.action, JSON.stringify(reply.say));
     this.pendingAfterSpeech = reply.action === 'speak' ? undefined : reply.action;
-    void this.speak(reply.say);
+    this.thinking = false;
+    void this.speak(reply.say); // sets speaking=true synchronously before any await — no race
   }
 
   // Synthesise + stream a line back, paced at ~20 ms/frame (clean playback). Guarded by speakGen.
