@@ -15,11 +15,10 @@ export interface BrainReply { say: string; action: BrainAction }
 const ARRIVED = /(aa\s?gay|aagay|pahunch|poh?o?nch|pahonch|dikh\s?gay|mil\s?gay|reach|dukaan|saamne|samne|saamane)/i;
 const LOST = /(pata nahi|nahi pata|maloom nahi|maalum nahi|samajh nahi|kho gaya|lost|kahan jau|kahaan jau|baat kara|maalik|malik|owner|insaan|aadmi)/i;
 
-const GREETING =
-  'Haan ji, namaste! Aryan Enterprises se baat kar raha hoon. Aap abhi kahaan pe ho? Bas itna bata dijiye, main aapko dukaan tak le aata hoon.';
+const GREETING = 'Haan ji namaste, Aryan Enterprises se. Boliye, abhi kahaan ho?';
 const WAYPOINT =
-  'Koi baat nahi. Aap Mathura Road pe aa jaiye, Canara Bank ya Metro Pillar pachees ki taraf. Wahaan aa ke bata dena, main aage ka raasta bata deta hoon.';
-const REPROMPT = 'Haan, boliye — aap abhi kis jagah ke paas ho?';
+  'Koi baat nahi. Mathura Road pe Canara Bank ya Pillar pachees ki taraf aa jaiye, phir bataiye.';
+const REPROMPT = 'Haan boliye, kis jagah ke paas ho?';
 const ARRIVE_LINE =
   'Wah, bahut badhiya! Dukaan aapke bilkul saamne hai — Bosch aur Havells ka board, nariyal wale ke saamne. Aa jaiye, shukriya!';
 const TRANSFER_LINE = 'Ek minute, main maalik se baat kara deta hoon — woh aapko seedha bata denge.';
