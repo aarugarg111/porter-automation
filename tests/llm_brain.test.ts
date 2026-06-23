@@ -26,6 +26,19 @@ test('[ARRIVED] → hangup (tag stripped); [CONNECT] → transfer', async () => 
   expect(await connect.onTranscript('samajh nahi aa raha')).toEqual({ say: 'Ek minute, maalik se jod raha hoon.', action: 'transfer' });
 });
 
+test('uncorroborated [ARRIVED] on a garbled turn does NOT end the call (real call 2026-06-23 regression)', async () => {
+  // STT mis-heard "hello" as garbage; model wrongly tagged [ARRIVED]. Driver said nothing about arriving.
+  const brain = new LlmBrain(new MockChat(() => 'Aap aa gaye, badhiya! [ARRIVED]'), kb());
+  const r = await brain.onTranscript('तो मैं तो जाऊंगा बस से आके आऊंगा।');
+  expect(r.action).toBe('speak'); // downgraded — driver never signalled arrival
+});
+
+test('uncorroborated [CONNECT] early does NOT transfer/cut the call', async () => {
+  const brain = new LlmBrain(new MockChat(() => 'Maalik se jod raha hoon. [CONNECT]'), kb());
+  const r = await brain.onTranscript('main pillar 25 ke paas hoon'); // a location, not "I am lost"
+  expect(r.action).toBe('speak');
+});
+
 test('LLM error → graceful re-prompt, never crashes the call', async () => {
   const brain = new LlmBrain(new MockChat(() => { throw new Error('boom'); }), kb());
   const r = await brain.onTranscript('hello');
