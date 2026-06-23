@@ -1,43 +1,28 @@
-// Run AFTER putting MAPPLS_CLIENT_ID + MAPPLS_CLIENT_SECRET in .env:
-//   NODE_NO_WARNINGS=1 npx tsx scripts/verify-mappls.mts
-// Confirms (a) auth works, (b) Mappls actually HAS Muthoot Finance / Canara Bank / Aryan Enterprises
-// near the shop — the coverage question free OSM failed. If this prints those POIs, we wire the adapter.
+// Run:  NODE_NO_WARNINGS=1 npx tsx scripts/verify-mappls.mts
+// Mappls Aug-2025 auth: the Static Key is passed as the `access_token` QUERY PARAM (not URL path, not
+// OAuth). Geocoding host = search.mappls.com. This confirms whether Mappls actually HAS Muthoot Finance /
+// Canara Bank / the shop near Badarpur — the coverage question free OSM failed.
 import '../src/config/load-env.js';
 
-const id = process.env.MAPPLS_CLIENT_ID;
-const secret = process.env.MAPPLS_CLIENT_SECRET;
-if (!id || !secret) { console.error('Set MAPPLS_CLIENT_ID + MAPPLS_CLIENT_SECRET in .env first.'); process.exit(1); }
+const KEY = process.env.MAPPLS_REST_KEY;
+if (!KEY) { console.error('Set MAPPLS_REST_KEY=<Static Key> in .env first.'); process.exit(1); }
 
-// Badarpur Border metro — closest known coordinate to the shop (OSM had this one).
-const REF = '28.4958,77.3023';
-
-async function token(): Promise<string> {
-  const res = await fetch('https://outpost.mappls.com/api/security/oauth/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'client_credentials', client_id: id!, client_secret: secret! }),
-  });
-  const j: any = await res.json();
-  if (!j.access_token) throw new Error('auth failed: ' + JSON.stringify(j).slice(0, 200));
-  return j.access_token;
-}
-
-async function get(url: string, tok: string) {
-  const res = await fetch(url, { headers: { Authorization: `bearer ${tok}` } });
+async function geocode(q: string) {
+  const url = `https://search.mappls.com/search/address/geocode?access_token=${encodeURIComponent(KEY!)}&itemCount=3&address=${encodeURIComponent(q)}`;
+  const res = await fetch(url);
   const txt = await res.text();
-  if (!res.ok) return `HTTP ${res.status}: ${txt.slice(0, 160)}`;
-  try { return JSON.parse(txt); } catch { return txt.slice(0, 200); }
-}
-
-const tok = await token();
-console.log('✓ auth ok\n');
-
-for (const kw of ['Muthoot Finance', 'Canara Bank', 'Aryan Enterprises']) {
-  const r: any = await get(`https://atlas.mappls.com/api/places/nearby/json?keywords=${encodeURIComponent(kw)}&refLocation=${REF}&radius=1500`, tok);
-  const list = r?.suggestedLocations || r?.results || [];
-  console.log(`NEARBY "${kw}": ${Array.isArray(list) ? list.length : 0} result(s)`);
-  for (const p of (list || []).slice(0, 4))
-    console.log('   -', p.placeName || p.poi || p.placeAddress, '| dist', p.distance, 'm |', p.latitude + ',' + p.longitude);
+  if (!res.ok) { console.log(`geocode "${q}": HTTP ${res.status} — ${txt.slice(0, 160)}\n`); return; }
+  let j: any = {}; try { j = JSON.parse(txt); } catch {}
+  const rs = j.copResults ? [j.copResults] : (j.results || []);
+  console.log(`geocode "${q}": ${rs.length} result(s)`);
+  for (const r of rs.slice(0, 3))
+    console.log(`   - ${r.formattedAddress || r.placeName || '?'} | ${r.latitude},${r.longitude} | eLoc ${r.eLoc || '-'} | ${r.geocodeLevel || ''}`);
   console.log('');
 }
+
+for (const q of [
+  'Aryan Enterprises Bankey Lal Market Badarpur New Delhi',
+  'Muthoot Finance Badarpur New Delhi 110044',
+  'Canara Bank Badarpur New Delhi',
+]) await geocode(q);
 process.exit(0);
