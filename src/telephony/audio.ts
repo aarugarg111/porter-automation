@@ -50,6 +50,13 @@ export function pcm16BytesToSamples(buf: Buffer): Int16Array {
   return out;
 }
 
+// Int16Array → raw little-endian PCM16 bytes (what Sarvam STT wants on the wire).
+export function pcm16SamplesToBytes(pcm: Int16Array): Buffer {
+  const buf = Buffer.allocUnsafe(pcm.length * 2);
+  for (let i = 0; i < pcm.length; i++) buf.writeInt16LE(pcm[i], i * 2);
+  return buf;
+}
+
 // Nearest-neighbour resample of PCM16 from one rate to another. Crude but fine for 8 kHz telephony
 // (a TTS that outputs 22050/24000 Hz must be brought down to Twilio's 8000 Hz before µ-law encoding).
 export function resamplePcm16(input: Int16Array, fromRate: number, toRate: number): Int16Array {
