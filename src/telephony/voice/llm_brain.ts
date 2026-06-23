@@ -7,6 +7,7 @@ import type { Brain, BrainReply, BrainAction } from './brain.js';
 import { ARRIVED, LOST } from './brain.js';
 import type { ChatClient, ChatMessage } from './llm.js';
 import type { LandmarkKB } from '../../landmarks/kb.js';
+import type { MapsProvider } from '../../maps/google.js';
 
 const GREETING = 'हाँ जी नमस्ते, आर्यन एंटरप्राइज़ेज़ से। बोलिए, अभी कहाँ हो?';
 const MAX_HISTORY = 14; // system + ~6 turns
@@ -67,7 +68,7 @@ function parseReply(raw: string): BrainReply {
 export class LlmBrain implements Brain {
   private history: ChatMessage[];
   private userTurns = 0;
-  constructor(private llm: ChatClient, kb: LandmarkKB) {
+  constructor(private llm: ChatClient, private kb: LandmarkKB, private maps?: MapsProvider) {
     this.history = [{ role: 'system', content: systemPrompt(kb.knowledge()) }];
   }
 
@@ -79,15 +80,32 @@ export class LlmBrain implements Brain {
     this.userTurns++;
     this.history.push({ role: 'user', content: text });
     if (this.history.length > MAX_HISTORY) this.history = [this.history[0], ...this.history.slice(-(MAX_HISTORY - 1))];
+    const msgs = [...this.history, ...(await this.mapGrounding(text))]; // grounding is per-call, not persisted
     let raw: string;
     try {
-      raw = await this.llm.complete(this.history);
+      raw = await this.llm.complete(msgs);
     } catch (e) {
       console.error('[llm-brain]', (e as Error).message);
       return { say: 'माफ़ कीजिए, आवाज़ कट गई। एक बार फिर बोलिए?', action: 'speak' };
     }
     this.history.push({ role: 'assistant', content: raw });
     return this.corroborate(parseReply(raw), text);
+  }
+
+  // For a landmark NOT in Aryan's curated KB, ask the map where it is and hand the model a grounded hint.
+  // Curated landmarks win (no API call); fillers / short text are skipped inside the provider.
+  private async mapGrounding(text: string): Promise<ChatMessage[]> {
+    if (!this.maps) return [];
+    const km = this.kb.match(text);
+    if (km && km.confidence >= 0.4) return []; // curated knowledge already covers this spot
+    try {
+      const hit = await this.maps.locate(text);
+      if (!hit) return [];
+      const step = hit.distM <= 80
+        ? 'He is basically AT the shop — tell him to look right beside him for the बॉश-हैवेल्स board / नारियल वाला.'
+        : `Give ONE concrete next step toward the shop (मेट्रो पिलर पच्चीस / बैंके लाल मार्केट), which is to his ${hit.dirToShop}.`;
+      return [{ role: 'system', content: `MAP DATA (live): the driver appears to be at "${hit.name}" (${hit.address}), about ${hit.distM} m from the shop. ${step}` }];
+    } catch (e) { console.error('[llm-brain map]', (e as Error).message); return []; }
   }
 
   // The model's [ARRIVED]/[CONNECT] is only a SUGGESTION — honour an end-the-call action only when the

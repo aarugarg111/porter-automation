@@ -39,6 +39,22 @@ test('uncorroborated [CONNECT] early does NOT transfer/cut the call', async () =
   expect(r.action).toBe('speak');
 });
 
+test('map grounding: an UNKNOWN landmark gets a live map hint passed to the model', async () => {
+  let seen: ChatMessage[] = [];
+  const maps = { locate: async () => ({ name: 'Prahladpur Metro', address: 'Prahladpur, Delhi', distM: 1500, dirToShop: 'south' }) };
+  const brain = new LlmBrain(new MockChat((_u, m) => { seen = m; return 'theek hai.'; }), kb(), maps);
+  await brain.onTranscript('main prahladpur metro ke paas hoon');
+  expect(seen.some((m) => m.role === 'system' && /MAP DATA/.test(m.content) && /Prahladpur/.test(m.content))).toBe(true);
+});
+
+test('map grounding: a CURATED landmark (Muthoot) skips the maps call', async () => {
+  let called = false;
+  const maps = { locate: async () => { called = true; return null; } };
+  const brain = new LlmBrain(new MockChat(() => 'theek hai.'), kb(), maps);
+  await brain.onTranscript('main muthoot finance ke paas hoon'); // curated → maps NOT called
+  expect(called).toBe(false);
+});
+
 test('LLM error → graceful re-prompt, never crashes the call', async () => {
   const brain = new LlmBrain(new MockChat(() => { throw new Error('boom'); }), kb());
   const r = await brain.onTranscript('hello');

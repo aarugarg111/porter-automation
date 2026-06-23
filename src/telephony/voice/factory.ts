@@ -9,6 +9,7 @@ import { EdgeTtsEngine } from './edge.js';
 import { GuidanceBrain, type Brain } from './brain.js';
 import { LlmBrain } from './llm_brain.js';
 import { OpenAiCompatChat } from './llm.js';
+import { GoogleMaps } from '../../maps/google.js';
 import type { LandmarkKB } from '../../landmarks/kb.js';
 
 export interface VoiceEngines { stt: SttEngine; tts: TtsEngine; mode: string }
@@ -23,7 +24,9 @@ export function createBrain(kb: LandmarkKB): Brain {
     const model = process.env.LLM_MODEL || 'gemini-flash-latest';
     // Reasoning models (e.g. sarvam-30b) spend tokens "thinking" before the answer → give enough budget.
     const maxTokens = Number(process.env.LLM_MAX_TOKENS) || 400;
-    return new LlmBrain(new OpenAiCompatChat(base, key, model, { maxTokens }), kb);
+    // Optional live map grounding (Google) for landmarks Aryan didn't pre-list; off if no key.
+    const maps = process.env.GOOGLE_MAPS_API_KEY ? new GoogleMaps(process.env.GOOGLE_MAPS_API_KEY) : undefined;
+    return new LlmBrain(new OpenAiCompatChat(base, key, model, { maxTokens }), kb, maps);
   }
   return new GuidanceBrain(kb);
 }
