@@ -35,7 +35,7 @@ export class SarvamTtsEngine implements TtsEngine {
         body: JSON.stringify({
           text: chunk, target_language_code: 'hi-IN', speaker: this.speaker,
           model: 'bulbul:v2', speech_sample_rate: 8000, output_audio_codec: 'mulaw',
-          pace: Number(process.env.SARVAM_PACE) || 1.1, // a touch quicker = more natural, less "AI"
+          pace: Number(process.env.SARVAM_PACE) || 0.9, // a touch SLOWER = clearer directions on a call
         }),
       });
       if (!res.ok) { console.error('[sarvam.tts]', res.status, (await res.text()).slice(0, 200)); continue; }
