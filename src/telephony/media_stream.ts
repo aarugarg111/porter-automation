@@ -34,7 +34,11 @@ export class CallSession {
   private brain: GuidanceBrain;
   private speakGen = 0;          // bumped on every new utterance + on barge-in → stale frames are dropped
   private speaking = false;
+  private mutedUntilMs = 0;      // ignore transcripts briefly after we finish talking (echo tail)
+  private speakTimer?: ReturnType<typeof setTimeout>;
   private pendingAfterSpeech?: BrainAction; // 'transfer'/'hangup' to run once the line finishes playing
+
+  private log(...a: unknown[]): void { console.log(`[voice ${this.callSid || this.streamSid}]`, ...a); }
 
   constructor(private ws: WebSocket, private deps: MediaStreamDeps) {
     this.brain = new GuidanceBrain(deps.kb);
@@ -57,6 +61,7 @@ export class CallSession {
     this.fromPhone = msg.start?.customParameters?.from || '';
     logCallTurn(this.deps.db, { callSid: this.callSid, fromPhone: this.fromPhone });
 
+    this.log('call started, from=', this.fromPhone || '(masked)');
     this.stt = this.deps.stt.open({
       onSpeechStarted: () => this.onBargeIn(),
       onFinal: (text) => this.onUtterance(text),
@@ -69,9 +74,13 @@ export class CallSession {
     if (payload && this.stt) this.stt.pushAudio(Buffer.from(payload, 'base64'));
   }
 
-  // Caller started talking → stop our playback immediately and listen.
+  // HALF-DUPLEX by default: we do NOT interrupt ourselves. The earlier echo loop was the bot hearing
+  // its own voice (call echo) and "barging in" on itself. Opt back into true barge-in with VOICE_BARGE_IN=1
+  // only once acoustic echo cancellation is sorted.
   private onBargeIn(): void {
+    if (process.env.VOICE_BARGE_IN !== '1') return; // half-duplex
     if (!this.speaking) return;
+    this.log('barge-in: caller interrupted');
     this.speakGen++;
     this.speaking = false;
     this.pendingAfterSpeech = undefined;
@@ -79,32 +88,49 @@ export class CallSession {
   }
 
   private onUtterance(text: string): void {
+    // Ignore anything heard WHILE we're talking (or just after) — that's our own echo, not the caller.
+    if (this.speaking || Date.now() < this.mutedUntilMs) { this.log('heard (ignored, self-echo):', JSON.stringify(text)); return; }
+    this.log('heard:', JSON.stringify(text));
     logCallTurn(this.deps.db, { callSid: this.callSid, fromPhone: this.fromPhone, spoken: text });
     const reply = this.brain.onTranscript(text);
+    this.log('→', reply.action, JSON.stringify(reply.say));
     this.pendingAfterSpeech = reply.action === 'speak' ? undefined : reply.action;
     void this.speak(reply.say);
   }
 
-  // Synthesise + stream a line back as µ-law frames. Guarded by speakGen so a barge-in mid-line stops it.
+  // Synthesise + stream a line back, paced at ~20 ms/frame (clean playback). Guarded by speakGen.
   private async speak(text: string): Promise<void> {
     const gen = ++this.speakGen;
     this.speaking = true;
     let mu: Buffer;
     try { mu = await this.deps.tts.synthesize(text); }
-    catch (e) { console.error('[media] tts', e); this.speaking = false; return; }
-    if (gen !== this.speakGen) return; // superseded during synthesis
-    for (const frame of chunkMuLaw(mu)) {
+    catch (e) { console.error('[media] tts', e); this.finishSpeaking(gen); return; }
+    if (gen !== this.speakGen) return; // superseded
+    const frames = chunkMuLaw(mu);
+    this.log(`speaking ${frames.length} frames (~${(mu.length / 8000).toFixed(1)}s)`);
+    for (const frame of frames) {
       if (gen !== this.speakGen) return;
       this.sendJson({ event: 'media', streamSid: this.streamSid, media: { payload: frame.toString('base64') } });
+      await new Promise((r) => setTimeout(r, 20));
     }
+    if (gen !== this.speakGen) return;
     this.sendJson({ event: 'mark', streamSid: this.streamSid, mark: { name: `say-${gen}` } });
+    // Fallback in case Twilio never echoes the mark — start listening after the audio would have played.
+    this.speakTimer = setTimeout(() => this.finishSpeaking(gen), 1500);
   }
 
-  // Twilio echoes our mark once the audio has actually played out → now run any deferred hangup/transfer.
+  // Twilio echoes our mark once the audio has played out → resume listening (+ run any deferred action).
   private onMark(msg: any): void {
     const name: string = msg.mark?.name || '';
-    if (name !== `say-${this.speakGen}`) return;
+    if (name === `say-${this.speakGen}`) this.finishSpeaking(this.speakGen);
+  }
+
+  private finishSpeaking(gen: number): void {
+    if (gen !== this.speakGen || !this.speaking) return;
+    if (this.speakTimer) { clearTimeout(this.speakTimer); this.speakTimer = undefined; }
     this.speaking = false;
+    this.mutedUntilMs = Date.now() + Number(process.env.VOICE_ECHO_GRACE_MS ?? 500); // echo-tail grace
+    this.log('done speaking → listening');
     const action = this.pendingAfterSpeech;
     this.pendingAfterSpeech = undefined;
     if (action === 'hangup') void this.endCall();
