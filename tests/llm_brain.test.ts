@@ -10,7 +10,7 @@ function kb() { const db = getDb(':memory:'); seedLandmarks(db); return new Land
 test('speaks the model reply and grounds the system prompt in shop + routes', async () => {
   let seen: ChatMessage[] = [];
   const brain = new LlmBrain(new MockChat((_u, m) => { seen = m; return 'Achha, Canara Bank ki taraf aa jao.'; }), kb());
-  expect(await brain.greeting()).toMatch(/namaste/i);
+  expect(await brain.greeting()).toMatch(/नमस्ते/);
   const r = await brain.onTranscript('main pillar 25 pe hoon');
   expect(r).toEqual({ say: 'Achha, Canara Bank ki taraf aa jao.', action: 'speak' });
   expect(seen[0].role).toBe('system');

@@ -8,7 +8,7 @@ import { ARRIVED, LOST } from './brain.js';
 import type { ChatClient, ChatMessage } from './llm.js';
 import type { LandmarkKB } from '../../landmarks/kb.js';
 
-const GREETING = 'Haan ji namaste, Aryan Enterprises se. Boliye, abhi kahaan ho?';
+const GREETING = 'हाँ जी नमस्ते, आर्यन एंटरप्राइज़ेज़ से। बोलिए, अभी कहाँ हो?';
 const MAX_HISTORY = 14; // system + ~6 turns
 
 export function systemPrompt(routes: string): string {
@@ -27,20 +27,23 @@ export function systemPrompt(routes: string): string {
     routes,
     '',
     'HOW TO TALK (this is a live phone call — talk like a person, not a recording):',
-    '- Reply ONLY in simple spoken Hindi (Roman or Devanagari, both fine). Warm and human.',
-    '- CRITICAL: ONE short reply — exactly ONE sentence, two at the very most. Give a SINGLE next step,',
-    '  then STOP and wait for his answer. NEVER list the whole route or several landmarks in one reply.',
-    '- Your FIRST job is to find out where he is RIGHT NOW. Until he names a clear road/landmark, ask ONE',
-    '  short question like "Aap abhi kis road ya kis dukaan ke paas khade ho?" — give NO directions yet.',
-    '- Only AFTER you know his spot, give the single NEXT step toward Pillar 25 / Canara Bank, then wait.',
-    "- If his words are unclear, garbled, or you can't tell where he is, DON'T guess and DON'T give",
-    '  directions — gently ask him to repeat where he is.',
+    '- Reply ONLY in pure Devanagari (Hindi) script. Write EVERY word in Devanagari, INCLUDING names and',
+    '  places — transliterate them: आर्यन एंटरप्राइज़ेज़, मथुरा रोड, मेट्रो पिलर पच्चीस, कैनरा बैंक, बॉश,',
+    '  हैवेल्स, फ़रीदाबाद, बदरपुर बॉर्डर, बैंके लाल मार्केट. NEVER write even one Latin/English letter — the',
+    '  phone voice mispronounces Latin badly and the driver cannot understand it.',
+    '- CRITICAL: reply in EXACTLY ONE short spoken sentence. Give ONE next step, then STOP and wait.',
+    '  Never give two landmarks or the whole route in one reply.',
+    '- Your FIRST job is to find out where he is. Until he names a clear road/landmark, just ask',
+    '  "अभी आप किस रोड या किस दुकान के पास खड़े हैं?" — give NO directions yet.',
+    '- Only AFTER you know his spot, give the single NEXT step toward मेट्रो पिलर पच्चीस / कैनरा बैंक, then wait.',
+    "- If his words are unclear or garbled, DON'T guess — gently ask him to repeat where he is.",
     '- Do not repeat the same sentence twice — rephrase or move him forward. Confirm small wins. NEVER say you can\'t help.',
     '',
     'ENDING (put the tag at the very end, nothing after it):',
-    '- Use [ARRIVED] ONLY when HE clearly says he has reached, or can see the shop / the Bosch-Havells board /',
-    '  the coconut seller. If you are even slightly unsure, do NOT end — keep guiding. NEVER end on his first',
-    '  message, and NEVER end on a message you did not clearly understand.',
+    '- Use [ARRIVED] ONLY when he clearly says he has reached, or can see the shop / the बॉश-हैवेल्स board /',
+    '  the नारियल (coconut) seller. Then give ONE short warm line INVITING HIM INSIDE — for example',
+    '  "बस आप अंदर आ जाइए, आपका सामान तैयार है!" — and end with [ARRIVED]. NEVER end on his first message,',
+    '  and NEVER end on a message you did not clearly understand.',
     '- Use [CONNECT] only if he is genuinely stuck after several turns, or explicitly asks for a person.',
     '- Otherwise reply normally with no tag.',
   ].join('\n');
@@ -52,9 +55,9 @@ function parseReply(raw: string): BrainReply {
   if (/\[ARRIVED\]/i.test(say)) action = 'hangup';
   else if (/\[CONNECT\]/i.test(say)) action = 'transfer';
   say = say.replace(/\[(ARRIVED|CONNECT)\]/gi, '').trim();
-  if (!say) say = action === 'hangup' ? 'Bahut badhiya, aa jaiye! Shukriya.'
-    : action === 'transfer' ? 'Ek minute, maalik se jod raha hoon.'
-    : 'Haan boliye, abhi kahaan ho?';
+  if (!say) say = action === 'hangup' ? 'बहुत बढ़िया, बस अंदर आ जाइए! शुक्रिया।'
+    : action === 'transfer' ? 'एक मिनट, मालिक से जोड़ रहा हूँ।'
+    : 'हाँ बोलिए, अभी कहाँ हो?';
   return { say, action };
 }
 
@@ -78,7 +81,7 @@ export class LlmBrain implements Brain {
       raw = await this.llm.complete(this.history);
     } catch (e) {
       console.error('[llm-brain]', (e as Error).message);
-      return { say: 'Maaf kijiye, awaaz kat gayi. Ek baar phir boliye?', action: 'speak' };
+      return { say: 'माफ़ कीजिए, आवाज़ कट गई। एक बार फिर बोलिए?', action: 'speak' };
     }
     this.history.push({ role: 'assistant', content: raw });
     return this.corroborate(parseReply(raw), text);
