@@ -15,8 +15,11 @@ export interface Brain {
   onTranscript(text: string): Promise<BrainReply>;
 }
 
-const ARRIVED = /(aa\s?gay|aagay|pahunch|poh?o?nch|pahonch|dikh\s?gay|mil\s?gay|reach|dukaan|saamne|samne|saamane)/i;
-const LOST = /(pata nahi|nahi pata|maloom nahi|maalum nahi|samajh nahi|kho gaya|lost|kahan jau|kahaan jau|baat kara|maalik|malik|owner|insaan|aadmi)/i;
+// Exported so the LLM brain can CORROBORATE the model's [ARRIVED]/[CONNECT] tags against the driver's
+// own words (a single mis-heard transcript must never end the call). Cover Roman AND Devanagari — real
+// Sarvam STT returns Devanagari.
+export const ARRIVED = /(aa\s?gay|aagay|pahunch|poh?o?nch|pahonch|dikh\s?gay|mil\s?gay|reach|dukaan|saamne|samne|saamane|पहुँच|पहुंच|दिख\s?गय|मिल\s?गय|सामने|दुकान|नारियल|बोर्ड|आ\s?गय)/i;
+export const LOST = /(pata nahi|nahi pata|maloom nahi|maalum nahi|samajh nahi|kho gaya|lost|kahan jau|kahaan jau|baat kara|maalik|malik|owner|insaan|aadmi|पता नहीं|नहीं पता|समझ नहीं|खो गय|बात कर|मालिक|इंसान|आदमी)/i;
 
 const GREETING = 'Haan ji namaste, Aryan Enterprises se. Boliye, abhi kahaan ho?';
 const WAYPOINT =

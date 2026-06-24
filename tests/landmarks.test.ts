@@ -5,10 +5,10 @@ import { LandmarkKB } from '../src/landmarks/kb.js';
 
 function kb() { const db = getDb(':memory:'); seedLandmarks(db); return new LandmarkKB(db); }
 
-test('matches a primary keyword', () => {
+test('matches the Muthoot Finance landmark (shop is the very next door)', () => {
   const m = kb().match('main Muthoot ke paas hoon');
-  // Muthoot is not curated; ensure curated landmark works instead
-  expect(m).toBeNull();
+  expect(m).not.toBeNull();
+  expect(m!.directions).toMatch(/Aryan Enterprises|agli dukaan/i);
 });
 
 test('matches Pillar 25 by alias', () => {
@@ -37,5 +37,5 @@ test('seedLandmarks is idempotent', () => {
   const db = getDb(':memory:');
   seedLandmarks(db); seedLandmarks(db);
   const n = (db.prepare('select count(*) c from landmarks').get() as any).c;
-  expect(n).toBe(6);
+  expect(n).toBe(7);
 });
